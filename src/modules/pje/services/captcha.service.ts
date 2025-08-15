@@ -17,7 +17,7 @@ export interface CaptchaResult {
 @Injectable()
 export class CaptchaService {
   private readonly logger = new Logger(CaptchaService.name);
-  private readonly API_KEY = 'a596c99d0c3f0c686e54c29f702de5ea';
+  private readonly API_KEY = process.env.API_KEY_2CAPTCHA as string;
 
   constructor(private readonly httpService: HttpService) {}
 

@@ -1,0 +1,188 @@
+import { Partes, Polo, ProcessosResponse } from 'src/interfaces';
+import { Root } from 'src/interfaces/normalize';
+
+type Assunto = {
+  principal: boolean;
+  descricao: string;
+};
+
+export function normalizeResponse(
+  numero: string,
+  body: ProcessosResponse[],
+  message = 'processo não encontrado',
+  isDocument = false,
+): Root {
+  function generateId(length = 11) {
+    const chars = '0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return Number(result);
+  }
+  const now = new Date();
+  if (!body || body.length === 0) {
+    return {
+      id: generateId(),
+      created_at: {
+        date: now.toISOString().replace('T', ' ').substring(0, 19),
+        timezone_type: 3,
+        timezone: 'UTC',
+      },
+      numero_processo: numero,
+      resposta: { message },
+      status: 'NAO_ENCONTRADO',
+      motivo_erro: 'SEM_DADOS',
+      status_callback: null,
+      tipo: 'BUSCA_PROCESSO',
+      opcoes: { origem: 'TRT' },
+      tribunal: {
+        sigla: 'TRT',
+        nome: 'Tribunal Regional do Trabalho',
+        busca_processo: 1,
+      },
+    };
+  }
+
+  const regionTRT = Number(body[0]?.numero.split('.')[3]);
+  const isTrabalhista = Number(body[0]?.numero.split('.')[2]);
+
+  const instancias = body.map((instance, index) => {
+    const grauInstanciaMap = ['PRIMEIRO_GRAU', 'SEGUNDO_GRAU'];
+    const arquivado = instance?.itensProcesso?.some((item) =>
+      item.titulo.match(
+        /\bArquivados\s+os\s+autos\s+definitivamente\b[.!]?\s*$/i,
+      ),
+    );
+    const data_arquivamento = arquivado
+      ? instance.itensProcesso.find((item) =>
+          item.titulo.match(
+            /\bArquivados\s+os\s+autos\s+definitivamente\b[.!]?\s*$/i,
+          ),
+        )?.data
+      : null;
+    const partes: Partes[] = [];
+
+    ['poloAtivo', 'poloPassivo'].forEach((poloKey) => {
+      ((instance[poloKey] as Polo[]) ?? []).forEach((parte: Polo) => {
+        // Parte principal
+        partes.push({
+          id: parte.id,
+          tipo: parte.tipo,
+          nome: parte.nome.trim(),
+          principal: true,
+          polo: parte.polo,
+          documento: {
+            tipo:
+              parte.documento.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ',
+            numero: parte.documento.replace(/\D/g, ''),
+          },
+        });
+
+        // Representantes
+        (parte.representantes || []).forEach((rep: Polo) => {
+          partes.push({
+            id: rep.id,
+            tipo: rep.tipo,
+            nome: rep.nome.trim(),
+            principal: false,
+            polo: rep.polo,
+            documento: {
+              tipo:
+                rep.documento.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ',
+              numero: rep.documento.replace(/\D/g, ''),
+            },
+            advogado_de: parte.id,
+            // oabs: (rep.papeis || [])
+            //   .filter((p: Papeis) => p.identificador === 'advogado')
+            //   .map((_: any) => ({
+            //     numero: '', // substituir pelo número real da OAB
+            //     uf: rep.endereco?.estado ?? '', // garantir que seja sempre string
+            //   })),
+          });
+        });
+      });
+    });
+    // Função para gerar ID com 11 dígitos
+
+    const movimentacoes = instance?.itensProcesso?.map((item) => {
+      const partesConteudo = [
+        item?.titulo,
+        item?.tipo ? `| ${item.tipo}` : '',
+        !item?.publico && item?.documento ? '(Restrito)' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return {
+        data: new Intl.DateTimeFormat('pt-BR').format(new Date(item.data)),
+        conteudo: partesConteudo,
+        id: generateId(),
+      };
+    });
+
+    const result = {
+      id: instance.id,
+      assunto: instance.assuntos.find((item: Assunto) => item.principal)
+        ?.descricao,
+      sistema: 'PJE',
+      instancia: grauInstanciaMap[index],
+      segredo: instance.segredoJustica,
+      numero: null,
+      classe: instance.classe,
+      area: isTrabalhista ? 'Trabalhista' : 'Não Trabalhista',
+      data_distribuicao: instance.distribuidoEm,
+      orgao_julgador: instance.orgaoJulgador,
+      moeda_valor_causa: 'R$',
+      valor_causa: instance.valorDaCausa,
+      arquivado,
+      data_arquivamento: data_arquivamento || null,
+      fisico: null,
+      last_update_time: now.toISOString().replace('T', ' ').substring(0, 19),
+      situacoes: [],
+      partes,
+      movimentacoes,
+    };
+
+    if (isDocument) {
+      result['documentos_restritos'] = instance.documentos_restritos;
+    }
+
+    return result;
+  });
+  const resposta =
+    body.length > 0
+      ? {
+          numero_unico: body[0]?.numero,
+          origem: `TRT-${regionTRT}`,
+          instancias,
+          id: generateId(),
+        }
+      : {
+          message,
+          id: generateId(),
+        };
+  return {
+    id: generateId(),
+    created_at: {
+      date: now.toISOString().replace('T', ' ').substring(0, 19),
+      timezone_type: 3,
+      timezone: 'UTC',
+    },
+    numero_processo: body[0]?.numero,
+    resposta,
+    status: body.length > 0 ? 'SUCESSO' : 'NAO_ENCONTRADO',
+    motivo_erro: null,
+    status_callback: null,
+    tipo: 'BUSCA_PROCESSO',
+    opcoes: {
+      origem: `TRT`,
+    },
+    tribunal: {
+      sigla: 'TRT',
+      nome: 'Tribunal Regional do Trabalho',
+      busca_processo: 1,
+    },
+    valor: body[0]?.numero,
+  } as Root;
+}
