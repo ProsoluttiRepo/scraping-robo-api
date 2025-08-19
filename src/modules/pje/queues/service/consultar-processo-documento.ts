@@ -1,12 +1,16 @@
 // pje.service.ts
 import { InjectQueue } from '@nestjs/bull';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
 @Injectable()
 export class ConsultarProcessoDocumentoQueue {
+  logger = new Logger(ConsultarProcessoDocumentoQueue.name);
   constructor(@InjectQueue('pje-queue') private readonly pjeQueue: Queue) {}
   async execute(numero: string) {
+    this.logger.log(
+      `Enfileirando consulta de documentos para o processo: ${numero}`,
+    );
     await this.pjeQueue.add(
       'consulta-processo-documento',
       { numero },

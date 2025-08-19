@@ -6,10 +6,11 @@ export const normalizeDocsResponse = (
   regionTRT: number,
   docs?: ItensProcesso[],
 ): DocumentosRestritos[] => {
-  const itensProcessoDocs: DocumentosRestritos[] = docs
-    ?.filter((item) => item.documento)
-    .map((item, index) => {
-      return {
+  const docsFound: DocumentosRestritos[] = [];
+  const itensProcessoDocs: DocumentosRestritos[] = (
+    docs
+      ?.filter((item) => item.documento)
+      .map((item, index) => ({
         posicao_id: index + 1,
         titulo: item.tipo,
         descricao: item.titulo,
@@ -18,51 +19,91 @@ export const normalizeDocsResponse = (
         instancia: item.instancia,
         instanciaId: item.instanciaId,
         documentoId: item.id,
-      };
-    }) as DocumentosRestritos[];
-
-  //DOCUMENTO DE PETIÇÃO INICIAL
-  const peticaoInicialDoc = peticaoDoc(
-    itensProcessoDocs,
-  ) as DocumentosRestritos;
-
-  // DOCUMENTO DE SENTENÇA
-  const sentencaDoc = SentencaDoc(itensProcessoDocs);
-
-  // DOCUMENTO DE ACORDÃO(MÉRITO/TRT)
-  const acordaoDoc = getAcordaoValido(itensProcessoDocs) as DocumentosRestritos;
-
-  // DOCUMENTO DE ACORDÃO E ACORDÃO ED
-  const acordaoEDDoc = getDocsAcordaoED(
-    acordaoDoc,
-    AcordaoDoc(itensProcessoDocs),
+      })) || []
+  ).filter(
+    (doc, idx, arr) =>
+      arr.findIndex((d) => d.unique_name === doc.unique_name) === idx,
+  );
+  const movimentacoes =
     (docs ?? []).map((item) => ({
       data: new Intl.DateTimeFormat('pt-BR').format(new Date(item.data)),
       descricao: item.titulo,
-    })),
-  );
+      instancia: item.instancia,
+    })) || [];
+  //DOCUMENTO DE PETIÇÃO INICIAL
+  const peticaoInicialDoc = PeticaoDoc(
+    itensProcessoDocs,
+  ) as DocumentosRestritos;
+  if (peticaoInicialDoc) {
+    docsFound.push(peticaoInicialDoc);
+  }
+  // DOCUMENTO DE SENTENÇA
+  // const sentencaDoc = SentencaDoc(itensProcessoDocs);
 
-  const docsFound: DocumentosRestritos[] = [
-    peticaoInicialDoc,
+  // DOCUMENTO DE ACORDÃO(MÉRITO/TRT)
+  const acordaoDoc = getAcordaoValido(itensProcessoDocs) as DocumentosRestritos;
+  if (acordaoDoc) {
+    docsFound.push(
+      { ...acordaoDoc, tipo: ProcessDocumentType.Acordao },
+      { ...acordaoDoc, tipo: ProcessDocumentType.AcordaoTRT },
+    );
+  }
+
+  // DOCUMENTO DE ACORDÃO E ACORDÃO ED
+  const acordaoEDDoc = AcordaoEDDoc(
     acordaoDoc,
-    // ...acordaoEDDoc,
-    // ...sentencaDoc,
-  ];
+    AcordaoDoc(itensProcessoDocs),
+    movimentacoes,
+  );
+  if (acordaoEDDoc.length) {
+    docsFound.push(...acordaoEDDoc);
+  }
+
+  // DOCUMENTO DE PLANILHA DE CÁLCULO
+  const planilhaCalculoDoc = itensProcessoDocs.find((doc) =>
+    normalizeString(doc.titulo).match(/.*calculo.*/),
+  );
+  if (planilhaCalculoDoc) {
+    docsFound.push({
+      ...planilhaCalculoDoc,
+      tipo: ProcessDocumentType.PlanilhaCalculo,
+    });
+  }
+  // DOCUMENTO DE DESCISÃO
+  const decisaoDoc = itensProcessoDocs.find((doc) =>
+    normalizeString(doc.titulo).match(/.*decisao.*/i),
+  );
+  if (decisaoDoc) {
+    docsFound.push({
+      ...decisaoDoc,
+      tipo: ProcessDocumentType.Decisao,
+    });
+  }
+  // DOCUMENTO HOMOLOGADO
+  const homologadoDoc = HomologadoDoc(movimentacoes, itensProcessoDocs);
+
+  if (homologadoDoc) {
+    docsFound.push({
+      ...homologadoDoc,
+      tipo: ProcessDocumentType.HomologacaoDeCalculo,
+    });
+  }
   return docsFound;
 };
 
 /**
  * Filtra e transforma uma lista de documentos restritos, retornando apenas aqueles
  * cuja data é posterior ao documento 'acordao' fornecido e, se houver uma movimentação
- * "transitado em julgado" sem "revogada a decisão anterior" na mesma data, apenas os documentos
- * anteriores a essa data limite. Os documentos retornados são mapeados para ter o tipo definido como 'AcordaoED'.
+ * "transitado em julgado" (desconsiderando aquelas que tenham "revogada a decisão anterior"
+ * na mesma data), apenas os documentos anteriores a essa data limite.
+ * Os documentos retornados são mapeados para ter o tipo definido como 'AcordaoED'.
  *
  * @param acordao - Documento de referência para comparação de datas.
  * @param acordaoDocs - Lista de documentos restritos do tipo acórdão.
  * @param movimentacoes - Lista de movimentações do processo, contendo data e descrição.
  * @returns Array de documentos posteriores ao acórdão e, se aplicável, anteriores à data limite, com tipo 'AcordaoED'.
  */
-const getDocsAcordaoED = (
+const AcordaoEDDoc = (
   acordao: DocumentosRestritos | null,
   acordaoDocs: DocumentosRestritos[],
   movimentacoes: { data: string; descricao: string }[],
@@ -72,37 +113,42 @@ const getDocsAcordaoED = (
   const getTime = (d: string) =>
     new Date(d.split('/').reverse().join('-')).getTime();
 
-  // 1. Encontra a movimentação "transitado em julgado"
-  const transitado = movimentacoes.find((mov) =>
+  // 1. Pega todas as movimentações "transitado em julgado"
+  const transitados = movimentacoes.filter((mov) =>
     /transitado em julgado/i.test(mov.descricao),
   );
 
-  // 2. Verifica se na mesma data existe "Revogada a decisão anterior"
+  // 2. Ordena por data (caso não venham ordenadas)
+  transitados.sort((a, b) => getTime(a.data) - getTime(b.data));
+
+  // 3. Procura o primeiro "transitado em julgado" que NÃO tenha revogação na mesma data
   let dataLimite: number | null = null;
-  if (transitado) {
+  for (const t of transitados) {
     const mesmaDataRevogada = movimentacoes.some(
       (mov) =>
-        getTime(mov.data) === getTime(transitado.data) &&
+        getTime(mov.data) === getTime(t.data) &&
         /revogada a decisão anterior/i.test(mov.descricao),
     );
 
     if (!mesmaDataRevogada) {
-      dataLimite = getTime(transitado.data);
+      dataLimite = getTime(t.data);
+      break; // encontrou o válido, para aqui
     }
   }
-  // 3. Filtra todos os documentos após o Acórdão
+
+  // 4. Filtra todos os documentos posteriores ao acórdão de referência
   let docsFiltrados = acordaoDocs.filter(
     (doc) => getTime(doc.data) > getTime(acordao.data),
   );
 
-  // 4. Se existir data limite, filtrar apenas os anteriores
+  // 5. Se existir data limite, mantém apenas os anteriores
   if (dataLimite) {
     docsFiltrados = docsFiltrados.filter(
       (doc) => getTime(doc.data) < dataLimite,
     );
   }
 
-  // 5. Retorna com tipo ajustado
+  // 6. Retorna os documentos ajustando o tipo
   return docsFiltrados.map((doc) => ({
     ...doc,
     tipo: ProcessDocumentType.AcordaoED,
@@ -142,9 +188,7 @@ const getAcordaoValido = (docs: DocumentosRestritos[]) => {
     acordaoValido = acordaos[1] || null;
   }
 
-  return acordaoValido
-    ? { ...acordaoValido, tipo: ProcessDocumentType.Acordao }
-    : null;
+  return acordaoValido ? { ...acordaoValido } : null;
 };
 
 /**
@@ -156,7 +200,7 @@ const getAcordaoValido = (docs: DocumentosRestritos[]) => {
  * @param docs - Array de documentos restritos a serem pesquisados.
  * @returns O documento correspondente à petição inicial, com o tipo ajustado.
  */
-const peticaoDoc = (docs: DocumentosRestritos[]) => {
+const PeticaoDoc = (docs: DocumentosRestritos[]) => {
   return {
     ...docs.find((doc) =>
       normalizeString(doc.titulo).match(/.*peticao.*inicial.*/i),
@@ -212,4 +256,33 @@ const SentencaDoc = (docs: DocumentosRestritos[]) => {
       const dateB = new Date(b?.data.split('/').reverse().join('-')).getTime();
       return dateA - dateB;
     });
+};
+const HomologadoDoc = (
+  movimentacoes: { data: string; descricao: string; instancia: string }[],
+  documents: DocumentosRestritos[],
+) => {
+  // 1. Busca a movimentação homologada
+  const homologadoMoviment = movimentacoes.find((movement) => {
+    return (
+      movement?.instancia === 'PRIMEIRO_GRAU' &&
+      normalizeString(movement?.descricao)
+        ?.toLowerCase()
+        ?.match(/.*homologada (\w )?liquidacao.*/i)
+    );
+  });
+
+  if (!homologadoMoviment) {
+    return null;
+  }
+
+  // 2. Busca o documento vinculado à movimentação
+  const docFound = documents.find(
+    (doc) =>
+      (normalizeString(doc.titulo).match(/.*homologacao.*/i) ||
+        normalizeString(doc.titulo).match(/.*decisao.*/i)) &&
+      doc.instancia === 'PRIMEIRO_GRAU' &&
+      doc.data === homologadoMoviment.data,
+  );
+
+  return docFound || null;
 };

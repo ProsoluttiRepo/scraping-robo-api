@@ -2,6 +2,7 @@ import { Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ProcessFindService } from '../../services/process-find.service';
+import axios from 'axios';
 
 @Injectable()
 @Processor('pje-queue')
@@ -15,7 +16,18 @@ export class ConsultarProcessoService {
   })
   async execute(job: Job<{ numero: string }>) {
     const { numero } = job.data;
-    const result = await this.processFindService.execute(numero);
-    // this.logger.log('Processando número: ', result);
+    try {
+      this.logger.log(`Iniciando consulta do processo: ${numero}`);
+      const response = await this.processFindService.execute(numero);
+      const webhookUrl = process.env.WEBHOOK_URL || '';
+
+      await axios.post(webhookUrl, response, {
+        headers: {
+          Authorization: `${process.env.AUTHORIZATION_ESCAVADOR || ''}`,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Erro ao processar número: ', error);
+    }
   }
 }

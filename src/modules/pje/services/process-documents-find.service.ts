@@ -8,13 +8,14 @@ import {
   ItensProcesso,
   ProcessosResponse,
 } from 'src/interfaces';
+import { AwsS3Service } from 'src/services/aws-s3.service';
 import redis from 'src/shared/redis';
 import { normalizeDocsResponse } from 'src/utils/documents';
 import { normalizeResponse } from 'src/utils/normalizeResponse';
 import { CaptchaService } from './captcha.service';
-import { PjeLoginService } from './login.service';
 import { DocumentoService } from './documents.service';
-import { AwsS3Service } from 'src/services/aws-s3.service';
+import { PjeLoginService } from './login.service';
+import { Root } from 'src/interfaces/normalize';
 
 @Injectable()
 export class ProcessDocumentsFindService {
@@ -27,7 +28,7 @@ export class ProcessDocumentsFindService {
     private readonly awsS3Service: AwsS3Service,
   ) {}
 
-  async execute(numeroDoProcesso: string): Promise<any> {
+  async execute(numeroDoProcesso: string): Promise<Root> {
     let cookies = await redis.get('pje:auth:cookies');
     const regionTRT = Number(numeroDoProcesso.split('.')[3]);
     try {
@@ -107,9 +108,35 @@ export class ProcessDocumentsFindService {
             );
           }
 
+          const itensProcesso =
+            processoResponse.itensProcesso
+              .map((itens) => {
+                return {
+                  ...itens,
+                  instancia: i === 1 ? 'PRIMEIRO_GRAU' : 'SEGUNDO_GRAU',
+                  documentoId: itens.id,
+                  instanciaId: processoResponse.id,
+                } as ItensProcesso;
+              })
+              .filter((item) => item !== null) || [];
+          const normalizeDocsRestrict = normalizeDocsResponse(
+            regionTRT,
+            itensProcesso,
+          );
+          const documentosRestritos: DocumentosRestritos[] =
+            await this.uploadDocumentosRestritos(
+              normalizeDocsRestrict,
+              regionTRT,
+            );
+          this.logger.log(
+            `documentosRestritos instancia ${i} :`,
+            documentosRestritos,
+          );
+
           instances.push({
             ...processoResponse,
             grau: i === 1 ? 'PRIMEIRO_GRAU' : 'SEGUNDO_GRAU',
+            documentos_restritos: documentosRestritos,
           });
         } catch (err) {
           this.logger.warn(
@@ -119,31 +146,6 @@ export class ProcessDocumentsFindService {
           continue;
         }
       }
-
-      const itensProcesso =
-        instances
-          .flatMap((instancia) =>
-            instancia.itensProcesso.map((docs) => {
-              return {
-                ...docs,
-                instancia: instancia.grau,
-                instanciaId: instancia.id,
-              };
-            }),
-          )
-          .filter((item) => item !== null) || [];
-      const normalizeDocsRestrict = normalizeDocsResponse(
-        regionTRT,
-        itensProcesso as ItensProcesso[],
-      );
-      const documentosRestritos: DocumentosRestritos[] =
-        await this.uploadDocumentosRestritos(normalizeDocsRestrict, regionTRT);
-      instances.forEach((instance) => {
-        instance.documentos_restritos = documentosRestritos.filter(
-          (doc) => doc.instanciaId === instance.id,
-        );
-      });
-      console.log('Instances:', instances);
       return normalizeResponse(numeroDoProcesso, instances, '', true);
     } catch (error) {
       const login = await this.loginService.execute(regionTRT);

@@ -47,7 +47,6 @@ export class CaptchaService {
           },
         ),
       );
-      console.log('Send Response:', sendResponse.data);
 
       if (sendResponse.data.status !== 1) {
         this.logger.error(

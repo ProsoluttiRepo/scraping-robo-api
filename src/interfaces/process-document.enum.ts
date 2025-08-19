@@ -20,4 +20,5 @@ export enum ProcessDocumentType {
   Parcelamento916 = 'Parcelamento916',
   Impugnacao = 'Impugnacao',
   Garantia = 'Garantia',
+  Decisao = 'DecisaoPrevencao',
 }

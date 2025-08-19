@@ -12,13 +12,14 @@ export function normalizeResponse(
   message = 'processo não encontrado',
   isDocument = false,
 ): Root {
+  const opcoes: { [key: string]: any } = {};
   function generateId(length = 11) {
     const chars = '0123456789';
-    let result = '';
+    let resposta = '';
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      resposta += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return Number(result);
+    return Number(resposta);
   }
   const now = new Date();
   if (!body || body.length === 0) {
@@ -35,7 +36,7 @@ export function normalizeResponse(
       motivo_erro: 'SEM_DADOS',
       status_callback: null,
       tipo: 'BUSCA_PROCESSO',
-      opcoes: { origem: 'TRT' },
+      opcoes,
       tribunal: {
         sigla: 'TRT',
         nome: 'Tribunal Regional do Trabalho',
@@ -121,7 +122,7 @@ export function normalizeResponse(
       };
     });
 
-    const result = {
+    const resposta = {
       id: instance.id,
       assunto: instance.assuntos.find((item: Assunto) => item.principal)
         ?.descricao,
@@ -145,11 +146,14 @@ export function normalizeResponse(
     };
 
     if (isDocument) {
-      result['documentos_restritos'] = instance.documentos_restritos;
+      resposta['documentos_restritos'] = instance.documentos_restritos;
     }
 
-    return result;
+    return resposta;
   });
+  if (isDocument) {
+    opcoes['autos'] = true;
+  }
   const resposta =
     body.length > 0
       ? {
@@ -175,9 +179,7 @@ export function normalizeResponse(
     motivo_erro: null,
     status_callback: null,
     tipo: 'BUSCA_PROCESSO',
-    opcoes: {
-      origem: `TRT`,
-    },
+    opcoes,
     tribunal: {
       sigla: 'TRT',
       nome: 'Tribunal Regional do Trabalho',

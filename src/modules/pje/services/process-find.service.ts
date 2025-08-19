@@ -111,7 +111,6 @@ export class ProcessFindService {
       // }
     }
     // Adiciona retorno padrão para garantir que sempre retorna Root
-    return normalizeResponse(numeroDoProcesso, []);
   }
 
   async fetchProcess(
