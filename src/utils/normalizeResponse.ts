@@ -26,7 +26,7 @@ export function normalizeResponse(
     return {
       id: generateId(),
       created_at: {
-        date: now.toISOString().replace('T', ' ').substring(0, 19),
+        date: now.toISOString()?.replace('T', ' ').substring(0, 19),
         timezone_type: 3,
         timezone: 'UTC',
       },
@@ -75,8 +75,8 @@ export function normalizeResponse(
           polo: parte.polo,
           documento: {
             tipo:
-              parte.documento.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ',
-            numero: parte.documento.replace(/\D/g, ''),
+              parte?.login?.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ',
+            numero: parte?.login?.replace(/\D/g, ''),
           },
         });
 
@@ -90,8 +90,8 @@ export function normalizeResponse(
             polo: rep.polo,
             documento: {
               tipo:
-                rep.documento.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ',
-              numero: rep.documento.replace(/\D/g, ''),
+                rep.login?.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ',
+              numero: rep.login?.replace(/\D/g, ''),
             },
             advogado_de: parte.id,
             // oabs: (rep.papeis || [])
@@ -139,7 +139,7 @@ export function normalizeResponse(
       arquivado,
       data_arquivamento: data_arquivamento || null,
       fisico: null,
-      last_update_time: now.toISOString().replace('T', ' ').substring(0, 19),
+      last_update_time: now.toISOString()?.replace('T', ' ').substring(0, 19),
       situacoes: [],
       partes,
       movimentacoes,
@@ -169,7 +169,7 @@ export function normalizeResponse(
   return {
     id: generateId(),
     created_at: {
-      date: now.toISOString().replace('T', ' ').substring(0, 19),
+      date: now.toISOString()?.replace('T', ' ').substring(0, 19),
       timezone_type: 3,
       timezone: 'UTC',
     },

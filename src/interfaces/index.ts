@@ -98,4 +98,5 @@ export type Polo = {
   papeis?: Papeis[];
   endereco?: Endereco;
   oabs?: OAB[];
+  login?: string; // pode ser CPF ou CNPJ
 };
