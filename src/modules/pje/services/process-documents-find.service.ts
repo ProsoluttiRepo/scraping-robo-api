@@ -34,10 +34,10 @@ export class ProcessDocumentsFindService {
       username: process.env.PJE_USER_FIRST as string,
       password: process.env.PJE_PASS_FIRST as string,
     },
-    // {
-    //   username: process.env.PJE_USER_SECOND as string,
-    //   password: process.env.PJE_PASS_SECOND as string,
-    // },
+    {
+      username: process.env.PJE_USER_SECOND as string,
+      password: process.env.PJE_PASS_SECOND as string,
+    },
   ];
 
   // 🔹 Controle de alternância
