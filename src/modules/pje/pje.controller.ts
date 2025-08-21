@@ -28,16 +28,16 @@ export class PjeController {
   }
   @Get('/documento')
   async getDocument(@Res() res: Response): Promise<any> {
-    const buffer = await this.documentoService.execute(
-      212895,
-      28759914,
-      18,
-      'SEGUNDO_GRAU',
-    );
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="documento-59146608.pdf"`,
-    });
-    res.send(buffer);
+    //   const buffer = await this.documentoService.execute(
+    //     212895,
+    //     28759914,
+    //     18,
+    //     'SEGUNDO_GRAU',
+    //   );
+    //   res.set({
+    //     'Content-Type': 'application/pdf',
+    //     'Content-Disposition': `attachment; filename="documento-59146608.pdf"`,
+    //   });
+    //   res.send(buffer);
   }
 }

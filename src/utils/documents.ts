@@ -6,11 +6,12 @@ export const normalizeDocsResponse = (
   regionTRT: number,
   docs?: ItensProcesso[],
 ): DocumentosRestritos[] => {
+  if (!docs || !docs.length) return [];
   const docsFound: DocumentosRestritos[] = [];
   const itensProcessoDocs: DocumentosRestritos[] = (
     docs
       ?.filter((item) => item.documento)
-      .map((item, index) => ({
+      ?.map((item, index) => ({
         posicao_id: index + 1,
         titulo: item.tipo,
         descricao: item.titulo,
@@ -20,7 +21,7 @@ export const normalizeDocsResponse = (
         instanciaId: item.instanciaId,
         documentoId: item.id,
       })) || []
-  ).filter(
+  )?.filter(
     (doc, idx, arr) =>
       arr.findIndex((d) => d.unique_name === doc.unique_name) === idx,
   );

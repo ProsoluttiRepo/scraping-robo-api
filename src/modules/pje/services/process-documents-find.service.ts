@@ -16,6 +16,7 @@ import { CaptchaService } from './captcha.service';
 import { DocumentoService } from './documents.service';
 import { PjeLoginService } from './login.service';
 import { Root } from 'src/interfaces/normalize';
+import { userAgents } from 'src/utils/user-agents';
 
 @Injectable()
 export class ProcessDocumentsFindService {
@@ -27,16 +28,67 @@ export class ProcessDocumentsFindService {
     private readonly documentoService: DocumentoService,
     private readonly awsS3Service: AwsS3Service,
   ) {}
+  // 🔹 Contas disponíveis
+  private contas = [
+    {
+      username: process.env.PJE_USER_FIRST as string,
+      password: process.env.PJE_PASS_FIRST as string,
+    },
+    // {
+    //   username: process.env.PJE_USER_SECOND as string,
+    //   password: process.env.PJE_PASS_SECOND as string,
+    // },
+  ];
 
-  async execute(numeroDoProcesso: string): Promise<Root> {
-    let cookies = await redis.get('pje:auth:cookies');
+  // 🔹 Controle de alternância
+  private contaIndex = 0;
+  private contadorProcessos = 0;
+  // Função auxiliar para delay
+  private async delay(ms: number) {
+    return new Promise((res) => setTimeout(res, ms));
+  }
+
+  private async randomDelay(min = 1000, max = 3000) {
+    const time = Math.floor(Math.random() * (max - min + 1)) + min;
+    await this.delay(time);
+  }
+
+  /**
+   * 🔹 Alterna conta a cada 5 processos processados
+   * @param force força a troca de conta imediatamente
+   */
+  private getConta(force = false): { username: string; password: string } {
+    if (force || this.contadorProcessos >= 2) {
+      this.contaIndex = (this.contaIndex + 1) % this.contas.length;
+      this.contadorProcessos = 0;
+      this.logger.debug(
+        `🔄 Alternando para a conta: ${this.contas[this.contaIndex].username}`,
+      );
+    }
+    this.contadorProcessos++;
+    return this.contas[this.contaIndex];
+  }
+
+  async execute(numeroDoProcesso: string, tentativas = 0): Promise<Root> {
     const regionTRT = Number(numeroDoProcesso.split('.')[3]);
     try {
       const tokenCaptcha = await redis.get('pje:token:captcha');
+      // 🔹 Escolhe a conta atual
+      const { username, password } = this.getConta();
+      const cacheKey = `pje:auth:cookies:${username}`;
+      let cookies = await redis.get(cacheKey);
+
       if (!cookies) {
-        const login = await this.loginService.execute(regionTRT);
+        // 🔹 Faz login com a conta atual
+        const login = await this.loginService.execute(
+          regionTRT,
+          username,
+          password,
+        );
         if (!login?.cookies) {
-          this.logger.error('Falha ao obter cookies de autenticação');
+          this.logger.error(
+            `Falha ao obter cookies de autenticação para ${username}`,
+          );
           return normalizeResponse(
             numeroDoProcesso,
             [],
@@ -44,28 +96,16 @@ export class ProcessDocumentsFindService {
           );
         }
         cookies = login.cookies;
-
-        // Armazena no Redis por 30 minutos (1800 segundos)
-        await redis.set('pje:auth:cookies', cookies);
-        return await this.execute(numeroDoProcesso);
+        await redis.set(cacheKey, cookies);
       }
+
       const instances: ProcessosResponse[] = [];
-      await axios.get<DetalheProcesso[]>(
-        `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
-        {
-          headers: {
-            accept: 'application/json, text/plain, */*',
-            'content-type': 'application/json',
-            'x-grau-instancia': 1,
-            referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/1`,
-            'user-agent':
-              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-            cookie: cookies,
-          },
-        },
-      );
+
       for (let i = 1; i < 3; i++) {
         try {
+          // Delay antes da requisição de dados básicos
+          await this.randomDelay();
+
           const responseDadosBasicos = await axios.get<DetalheProcesso[]>(
             `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
             {
@@ -75,29 +115,36 @@ export class ProcessDocumentsFindService {
                 'x-grau-instancia': i.toString(),
                 referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${i}`,
                 'user-agent':
-                  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+                  userAgents[Math.floor(Math.random() * userAgents.length)],
                 cookie: cookies,
               },
             },
           );
+
           const detalheProcesso = responseDadosBasicos.data[0];
           if (!detalheProcesso) continue;
+
+          await this.randomDelay();
           let processoResponse: ProcessosResponse = await this.fetchProcess(
             numeroDoProcesso,
             detalheProcesso.id,
             i.toString(),
             tokenCaptcha as string,
+            undefined,
+            undefined,
+            cookies,
           );
 
-          // Se precisar resolver captcha
           if (
             'imagem' in processoResponse &&
             'tokenDesafio' in processoResponse
           ) {
+            await this.randomDelay();
             const resposta = await this.fetchCaptcha(
               processoResponse.imagem,
               processoResponse.tokenDesafio,
             );
+            await this.randomDelay();
             processoResponse = await this.fetchProcess(
               numeroDoProcesso,
               detalheProcesso.id,
@@ -105,31 +152,42 @@ export class ProcessDocumentsFindService {
               undefined,
               processoResponse.tokenDesafio,
               resposta,
+              cookies,
             );
           }
+          console.log('processoResponse', processoResponse);
 
           const itensProcesso =
             processoResponse.itensProcesso
-              .map((itens) => {
-                return {
-                  ...itens,
-                  instancia: i === 1 ? 'PRIMEIRO_GRAU' : 'SEGUNDO_GRAU',
-                  documentoId: itens.id,
-                  instanciaId: processoResponse.id,
-                } as ItensProcesso;
-              })
-              .filter((item) => item !== null) || [];
+              ?.map(
+                (itens) =>
+                  ({
+                    ...itens,
+                    instancia: i === 1 ? 'PRIMEIRO_GRAU' : 'SEGUNDO_GRAU',
+                    documentoId: itens.id,
+                    instanciaId: processoResponse.id,
+                  }) as ItensProcesso,
+              )
+              ?.filter((item) => item !== null) || [];
+
+          // Delay antes do upload dos documentos
+          await this.randomDelay();
+
           const normalizeDocsRestrict = normalizeDocsResponse(
             regionTRT,
             itensProcesso,
           );
-          const documentosRestritos: DocumentosRestritos[] =
-            await this.uploadDocumentosRestritos(
+          let documentosRestritos: DocumentosRestritos[] = [];
+          if (normalizeDocsRestrict.length > 0) {
+            documentosRestritos = await this.uploadDocumentosRestritos(
               normalizeDocsRestrict,
               regionTRT,
+              cookies,
             );
+          }
+
           this.logger.log(
-            `documentosRestritos instancia ${i} :`,
+            `documentosRestritos instancia ${i}:`,
             documentosRestritos,
           );
 
@@ -142,20 +200,38 @@ export class ProcessDocumentsFindService {
           this.logger.warn(
             `Falha ao buscar instância ${i} para o processo ${numeroDoProcesso}: ${err.message}`,
           );
-          // Continua para a próxima instância sem quebrar o loop
           continue;
         }
       }
+
       return normalizeResponse(numeroDoProcesso, instances, '', true);
     } catch (error) {
-      const login = await this.loginService.execute(regionTRT);
+      this.logger.warn(
+        `Erro geral para ${numeroDoProcesso}, alternando conta...`,
+      );
+      if (tentativas >= 3) {
+        return normalizeResponse(
+          numeroDoProcesso,
+          [],
+          'Falha após múltiplas tentativas',
+        );
+      }
+      const { username, password } = this.getConta(true); // força troca
+      const cacheKey = `pje:auth:cookies:${username}`;
+      let cookies = await redis.get(cacheKey);
+      const login = await this.loginService.execute(
+        regionTRT,
+        username,
+        password,
+      );
       cookies = login.cookies;
+      await redis.set(cacheKey, cookies);
 
-      await redis.set('pje:auth:cookies', cookies);
-
-      return await this.execute(numeroDoProcesso);
+      return await this.execute(numeroDoProcesso, tentativas + 1);
     }
   }
+
+  // Mesma ideia de delay dentro do fetchProcess e fetchCaptcha se necessário
   async fetchProcess(
     numeroDoProcesso: string,
     detalheProcessoId: string,
@@ -163,9 +239,10 @@ export class ProcessDocumentsFindService {
     tockenCaptcha?: string,
     tokenDesafio?: string,
     resposta?: string,
-  ) {
+    cookies?: string,
+    tentativas = 0,
+  ): Promise<ProcessosResponse> {
     const regionTRT = Number(numeroDoProcesso.split('.')[3]);
-    const cookies = await redis.get('pje:auth:cookies');
     try {
       let url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${detalheProcessoId}`;
       if (tockenCaptcha) {
@@ -181,7 +258,7 @@ export class ProcessDocumentsFindService {
           'x-grau-instancia': instance,
           referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${instance}`,
           'user-agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+            userAgents[Math.floor(Math.random() * userAgents.length)],
           cookie: cookies,
         },
       });
@@ -194,8 +271,26 @@ export class ProcessDocumentsFindService {
         await redis.set(captchaKey, tokenCaptcha);
       }
       return response.data;
-    } catch (error) {
-      console.error('Error fetching process:', error);
+    } catch (error: any) {
+      if (error.response?.status === 429 && tentativas < 5) {
+        // 🔹 Retry exponencial: 1s, 2s, 4s, 8s, 16s
+        const waitTime = Math.pow(2, tentativas) * 1000;
+        console.warn(
+          `429 recebido, esperando ${waitTime}ms antes de tentar novamente...`,
+        );
+        await new Promise((res) => setTimeout(res, waitTime));
+        return await this.fetchProcess(
+          numeroDoProcesso,
+          detalheProcessoId,
+          instance,
+          tockenCaptcha,
+          tokenDesafio,
+          resposta,
+          cookies,
+          tentativas + 1,
+        );
+      }
+      console.error('Erro fetching process:', error.message);
       throw error;
     }
   }
@@ -221,6 +316,7 @@ export class ProcessDocumentsFindService {
   async uploadDocumentosRestritos(
     documentos: DocumentosRestritos[],
     regionTRT: number,
+    cookies: string,
   ): Promise<DocumentosRestritos[]> {
     const uploadedDocuments: DocumentosRestritos[] = [];
 
@@ -231,6 +327,7 @@ export class ProcessDocumentsFindService {
           documento.documentoId,
           regionTRT,
           documento.instancia,
+          cookies,
         );
         const fileName = `${documento.documentoId}.pdf`;
         const url = await this.awsS3Service.uploadPdf(buffer, fileName);

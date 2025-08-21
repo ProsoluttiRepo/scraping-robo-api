@@ -13,7 +13,6 @@ export class ConsultarProcessoService {
 
   @Process({
     name: 'consulta-processo',
-    concurrency: 5,
   })
   async execute(job: Job<{ numero: string }>) {
     const { numero } = job.data;
@@ -21,12 +20,6 @@ export class ConsultarProcessoService {
       this.logger.log(`Iniciando consulta do processo: ${numero}`);
       const response = await this.processFindService.execute(numero);
       this.logger.log('RESPONSE', response);
-
-      // this.adicionarNaPlanilha(
-      //   numero,
-      //   response.resposta?.instancias?.[0]?.partes[0] ??
-      //     'Instâncias não encontradas',
-      // );
 
       const webhookUrl = process.env.WEBHOOK_URL || '';
       this.logger.log('REPONSE', response);

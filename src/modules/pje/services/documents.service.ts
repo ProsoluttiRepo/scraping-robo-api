@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import redis from 'src/shared/redis';
 import puppeteer from 'puppeteer';
+import { userAgents } from 'src/utils/user-agents';
 
 @Injectable()
 export class DocumentoService {
@@ -10,17 +11,23 @@ export class DocumentoService {
     documentoId: number,
     regionTRT: number,
     instancia: string,
+    cookies: string,
   ): Promise<Buffer> {
+    if (!processId || !documentoId || !regionTRT || !instancia) {
+      throw new Error('Parâmetros inválidos fornecidos');
+    }
     let tokenCaptcha;
     if (instancia === 'PRIMEIRO_GRAU') {
       tokenCaptcha = await redis.get('pje:token:captcha:1');
     } else {
       tokenCaptcha = await redis.get('pje:token:captcha:2');
     }
+    console.log('Process ID:', processId);
+    console.log('Documento ID:', documentoId);
+    console.log('Region TRT:', regionTRT);
+    console.log('Instancia:', instancia);
 
     try {
-      const cookies = await redis.get('pje:auth:cookies');
-
       const url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${processId}/documentos/${documentoId}?tokenCaptcha=${tokenCaptcha}`;
       const response = await axios.get(url, {
         headers: {
@@ -28,7 +35,7 @@ export class DocumentoService {
           'x-grau-instancia': instancia === 'PRIMEIRO_GRAU' ? '1' : '2',
           referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${processId}/${instancia === 'PRIMEIRO_GRAU' ? '1' : '2'}`,
           'user-agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+            userAgents[Math.floor(Math.random() * userAgents.length)],
         },
         responseType: 'arraybuffer',
         withCredentials: true,
@@ -47,12 +54,8 @@ export class DocumentoService {
       }
       return Buffer.from(response.data);
     } catch (error) {
-      console.error(
-        `Erro ao obter documento ${documentoId}:`,
-        error?.response?.status,
-        error?.response?.data || error,
-      );
-      throw error;
+      console.error('Erro ao buscar documento:', error);
+      throw new Error('Erro ao buscar documento');
     }
   }
 
