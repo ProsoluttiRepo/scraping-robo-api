@@ -10,8 +10,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     PjeModule,
     BullModule.forRoot({
       redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: Number(process.env.REDIS_PORT) || 6380,
+        host: process.env.REDIS_HOST || 'redis',
+        port: Number(process.env.REDIS_PORT) || 6379,
       },
       limiter: { max: 2, duration: 1000 },
       defaultJobOptions: {
