@@ -58,7 +58,7 @@ jobs:
         run: |
           sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 22100 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd ${{ secrets.SSH_APP_PATH }}
-            echo "Recriando container nestjs-api..."
-            docker rm -f nestjs-api || true
-            docker compose up -d --build nestjs-api
+            echo "Recriando container scraping-robo..."
+            docker rm -f scraping-robo || true
+            docker compose up -d --build scraping-robo
           EOF
