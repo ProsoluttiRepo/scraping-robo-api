@@ -1,8 +1,30 @@
 version: '3'
 
 services:
-  redis:
-    image: redis
-    container_name: redis-custom
-    ports:
-      - '6380:6379'
+  scraping-robo:
+    build: .
+    container_name: scraping-robo
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=<host_do_redis_existente>
+      - REDIS_PORT=<porta_do_redis_existente>
+    env_file:
+      - .env
+    command: node dist/main
+    restart: always
+    networks:
+      - traefik-net
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.scrapingrobo.rule=Host(`scraping.api.analisesprosolutti.com`)'
+      - 'traefik.http.routers.scrapingrobo.entrypoints=websecure'
+      - 'traefik.http.routers.scrapingrobo.tls.certresolver=mytlschallenge'
+      - 'traefik.http.services.scrapingrobo.loadbalancer.server.port=8081'
+    expose:
+      - '8081'
+
+networks:
+  traefik-net:
+    external: true
+  app-network:
+    driver: bridge
