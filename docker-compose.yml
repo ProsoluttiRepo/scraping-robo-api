@@ -1,12 +1,24 @@
 version: '3'
 
 services:
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: always
+    ports:
+      - '6379:6379'
+    networks:
+      - traefik-net
+    volumes:
+      - redis-data:/data
+    command: ['redis-server', '--appendonly', 'yes']
+
   scraping-robo:
     build: .
     container_name: scraping-robo
     environment:
       - NODE_ENV=production
-      - REDIS_HOST=redis
+      - REDIS_HOST=redis # nome do serviço Redis
       - REDIS_PORT=6379
     env_file:
       - .env
@@ -26,5 +38,6 @@ services:
 networks:
   traefik-net:
     external: true
-  app-network:
-    driver: bridge
+
+volumes:
+  redis-data:
