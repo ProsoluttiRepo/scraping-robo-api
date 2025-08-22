@@ -1,0 +1,64 @@
+name: Deploy Scraping Service
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Baixa o código
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      # 2️⃣ Instala SSH + rsync
+      - name: Install SSH and rsync
+        run: sudo apt-get update && sudo apt-get install -y sshpass openssh-client rsync
+
+      # 3️⃣ Copia código para o servidor
+      - name: Copy project to remote server via rsync
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" rsync -avz --delete --exclude=".env" \
+            -e "ssh -o StrictHostKeyChecking=no -p 22100" \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.SSH_APP_PATH }}/
+
+      # 4️⃣ Cria/atualiza .env no servidor
+      - name: Create .env file on server
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 22100 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd ${{ secrets.SSH_APP_PATH }}
+            cat > .env <<EOL
+            NODE_ENV=production
+            PORT=3000
+
+            SCRAPING_API_KEY_2CAPTCHA=${{ secrets.SCRAPING_API_KEY_2CAPTCHA }}
+            SCRAPING_PJE_USER_FIRST=${{ secrets.SCRAPING_PJE_USER_FIRST }}
+            SCRAPING_PJE_PASS_FIRST=${{ secrets.SCRAPING_PJE_PASS_FIRST }}
+            SCRAPING_PJE_USER_SECOND=${{ secrets.SCRAPING_PJE_USER_SECOND }}
+            SCRAPING_PJE_PASS_SECOND=${{ secrets.SCRAPING_PJE_PASS_SECOND }}
+
+            SCRAPING_AWS_S3_REGION=${{ secrets.SCRAPING_AWS_S3_REGION }}
+            SCRAPING_AWS_S3_ACCESS_KEY_ID=${{ secrets.SCRAPING_AWS_S3_ACCESS_KEY_ID }}
+            SCRAPING_AWS_S3_SECRET_ACCESS_KEY=${{ secrets.SCRAPING_AWS_S3_SECRET_ACCESS_KEY }}
+            SCRAPING_AWS_S3_BUCKET_NAME=${{ secrets.SCRAPING_AWS_S3_BUCKET_NAME }}
+
+            SCRAPING_WEBHOOK_URL=${{ secrets.SCRAPING_WEBHOOK_URL }}
+            SCRAPING_AUTHORIZATION_ESCAVADOR=${{ secrets.SCRAPING_AUTHORIZATION_ESCAVADOR }}
+
+            SCRAPING_REDIS_HOST=${{ secrets.SCRAPING_REDIS_HOST }}
+            SCRAPING_REDIS_PORT=${{ secrets.SCRAPING_REDIS_PORT }}
+            EOL
+          EOF
+
+      # 5️⃣ Builda e sobe os containers no servidor
+      - name: Build and run with Docker Compose
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 22100 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd ${{ secrets.SSH_APP_PATH }}
+            echo "Recriando container nestjs-api..."
+            docker rm -f nestjs-api || true
+            docker compose up -d --build nestjs-api
+          EOF
