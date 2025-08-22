@@ -6,8 +6,8 @@ services:
     container_name: scraping-robo
     environment:
       - NODE_ENV=production
-      - REDIS_HOST=<host_do_redis_existente>
-      - REDIS_PORT=<porta_do_redis_existente>
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     env_file:
       - .env
     command: node dist/main
