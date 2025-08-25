@@ -24,10 +24,6 @@ export class DocumentoService {
     } else {
       tokenCaptcha = await redis.get('pje:token:captcha:2');
     }
-    console.log('Process ID:', processId);
-    console.log('Documento ID:', documentoId);
-    console.log('Region TRT:', regionTRT);
-    console.log('Instancia:', instancia);
 
     try {
       const url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${processId}/documentos/${documentoId}?tokenCaptcha=${tokenCaptcha}`;

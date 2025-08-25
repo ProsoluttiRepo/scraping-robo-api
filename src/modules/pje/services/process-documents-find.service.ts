@@ -8,15 +8,15 @@ import {
   ItensProcesso,
   ProcessosResponse,
 } from 'src/interfaces';
+import { Root } from 'src/interfaces/normalize';
 import { AwsS3Service } from 'src/services/aws-s3.service';
 import redis from 'src/shared/redis';
 import { normalizeDocsResponse } from 'src/utils/documents';
 import { normalizeResponse } from 'src/utils/normalizeResponse';
+import { userAgents } from 'src/utils/user-agents';
 import { CaptchaService } from './captcha.service';
 import { DocumentoService } from './documents.service';
 import { PjeLoginService } from './login.service';
-import { Root } from 'src/interfaces/normalize';
-import { userAgents } from 'src/utils/user-agents';
 
 @Injectable()
 export class ProcessDocumentsFindService {
@@ -155,7 +155,6 @@ export class ProcessDocumentsFindService {
               cookies,
             );
           }
-          console.log('processoResponse', processoResponse);
 
           const itensProcesso =
             processoResponse.itensProcesso
@@ -185,11 +184,6 @@ export class ProcessDocumentsFindService {
               cookies,
             );
           }
-
-          this.logger.log(
-            `documentosRestritos instancia ${i}:`,
-            documentosRestritos,
-          );
 
           instances.push({
             ...processoResponse,
