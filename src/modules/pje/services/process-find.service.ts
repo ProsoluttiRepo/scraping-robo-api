@@ -43,6 +43,9 @@ export class ProcessFindService {
             numeroDoProcesso,
             detalheProcesso.id,
             i.toString(),
+            undefined,
+            undefined,
+            regionTRT,
           );
 
           // Caso retorne captcha
@@ -58,6 +61,7 @@ export class ProcessFindService {
               i.toString(),
               processoResponse.tokenDesafio,
               resposta,
+              regionTRT,
             );
           }
 
@@ -90,12 +94,10 @@ export class ProcessFindService {
     numeroDoProcesso: string,
     detalheProcessoId: string,
     instance: string,
-    // cookies: string,
     tokenDesafio?: string,
     resposta?: string,
+    regionTRT?: number,
   ) {
-    const regionTRT = Number(numeroDoProcesso.split('.')[3]);
-
     try {
       let url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${detalheProcessoId}`;
       if (tokenDesafio && resposta) {
