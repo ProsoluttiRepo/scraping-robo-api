@@ -59,11 +59,14 @@ export class PjeLoginService {
         // 🔹 Launch Puppeteer com stealth
         browser = await puppeteer.launch({
           executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-          headless: false,
+          headless: true,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--single-process',
+            '--disable-gpu',
           ],
         });
 
