@@ -77,6 +77,7 @@ export class ProcessDocumentsFindService {
       const { username, password } = this.getConta();
       const cacheKey = `pje:auth:cookies:${username}`;
       let cookies = await redis.get(cacheKey);
+      console.log({ cookies });
 
       if (!cookies) {
         // 🔹 Faz login com a conta atual
