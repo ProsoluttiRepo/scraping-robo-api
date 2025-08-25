@@ -27,8 +27,6 @@ services:
   networks:
     traefik-net:
       external: true
-  app-network:
-    driver: bridge
 
 volumes:
   redis-data:
