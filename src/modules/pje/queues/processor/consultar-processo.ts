@@ -14,11 +14,11 @@ export class ConsultarProcessoService {
   @Process({
     name: 'consulta-processo',
   })
-  async execute(job: Job<{ numero: string }>) {
-    const { numero } = job.data;
+  async execute(job: Job<{ numero: string; origem: string }>) {
+    const { numero, origem } = job.data;
     try {
       this.logger.log(`Iniciando consulta do processo: ${numero}`);
-      const response = await this.processFindService.execute(numero);
+      const response = await this.processFindService.execute(numero, origem);
       this.logger.log('RESPONSE', response);
 
       const webhookUrl = process.env.WEBHOOK_URL || '';

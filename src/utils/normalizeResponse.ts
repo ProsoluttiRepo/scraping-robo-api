@@ -11,6 +11,7 @@ export function normalizeResponse(
   body: ProcessosResponse[],
   message = 'processo não encontrado',
   isDocument = false,
+  origem?: string,
 ): Root {
   const opcoes: { [key: string]: any } = {};
   function generateId(length = 11) {
@@ -20,6 +21,9 @@ export function normalizeResponse(
       resposta += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return Number(resposta);
+  }
+  if (origem) {
+    opcoes['origem'] = origem;
   }
   const now = new Date();
   if (!body || body.length === 0) {
@@ -38,7 +42,7 @@ export function normalizeResponse(
       tipo: 'BUSCA_PROCESSO',
       opcoes,
       tribunal: {
-        sigla: 'TRT',
+        sigla: origem ? 'TST' : 'TRT',
         nome: 'Tribunal Regional do Trabalho',
         busca_processo: 1,
       },
@@ -151,6 +155,9 @@ export function normalizeResponse(
 
     return resposta;
   });
+  if (origem) {
+    opcoes['origem'] = origem;
+  }
   if (isDocument) {
     opcoes['autos'] = true;
   }
@@ -158,7 +165,7 @@ export function normalizeResponse(
     body.length > 0
       ? {
           numero_unico: body[0]?.numero,
-          origem: `TRT-${regionTRT}`,
+          origem: origem ? 'TST' : `TRT-${regionTRT}`,
           instancias,
           id: generateId(),
         }
@@ -181,7 +188,7 @@ export function normalizeResponse(
     tipo: 'BUSCA_PROCESSO',
     opcoes,
     tribunal: {
-      sigla: 'TRT',
+      sigla: origem ? 'TST' : `TRT`,
       nome: 'Tribunal Regional do Trabalho',
       busca_processo: 1,
     },

@@ -6,10 +6,11 @@ import { Queue } from 'bullmq';
 @Injectable()
 export class ConsultarProcessoQueue {
   constructor(@InjectQueue('pje-queue') private readonly pjeQueue: Queue) {}
-  async execute(numero: string) {
+  async execute(numero: string, origem: string) {
+    console.log('numero', numero);
     await this.pjeQueue.add(
       'consulta-processo',
-      { numero },
+      { numero, origem },
       {
         attempts: 3, // até 3 tentativas se falhar
         backoff: 5000, // espera 5s antes de tentar de novo
