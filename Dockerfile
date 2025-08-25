@@ -1,6 +1,21 @@
 # Step 1: Base image with Node.js
 FROM node:18-alpine
 
+# Instala Chromium e dependências necessárias para Puppeteer
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    dumb-init \
+    && rm -rf /var/cache/apk/*
+
+# Define variáveis para o Puppeteer usar o Chromium instalado
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
 # Step 2: Set working directory
 WORKDIR /usr/src/app
 
@@ -18,4 +33,4 @@ RUN npm run build
 EXPOSE 8081
 
 # Step 7: Start the app
-CMD ["node", "dist/main"]
+CMD ["dumb-init", "node", "dist/main"]
