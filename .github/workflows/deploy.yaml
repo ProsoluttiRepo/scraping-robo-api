@@ -33,23 +33,6 @@ jobs:
             cat > .env <<EOL
             NODE_ENV=production
             PORT=8081
-
-            SCRAPING_API_KEY_2CAPTCHA=${{ secrets.SCRAPING_API_KEY_2CAPTCHA }}
-            SCRAPING_PJE_USER_FIRST=${{ secrets.SCRAPING_PJE_USER_FIRST }}
-            SCRAPING_PJE_PASS_FIRST=${{ secrets.SCRAPING_PJE_PASS_FIRST }}
-            SCRAPING_PJE_USER_SECOND=${{ secrets.SCRAPING_PJE_USER_SECOND }}
-            SCRAPING_PJE_PASS_SECOND=${{ secrets.SCRAPING_PJE_PASS_SECOND }}
-
-            SCRAPING_AWS_S3_REGION=${{ secrets.SCRAPING_AWS_S3_REGION }}
-            SCRAPING_AWS_S3_ACCESS_KEY_ID=${{ secrets.SCRAPING_AWS_S3_ACCESS_KEY_ID }}
-            SCRAPING_AWS_S3_SECRET_ACCESS_KEY=${{ secrets.SCRAPING_AWS_S3_SECRET_ACCESS_KEY }}
-            SCRAPING_AWS_S3_BUCKET_NAME=${{ secrets.SCRAPING_AWS_S3_BUCKET_NAME }}
-
-            SCRAPING_WEBHOOK_URL=${{ secrets.SCRAPING_WEBHOOK_URL }}
-            SCRAPING_AUTHORIZATION_ESCAVADOR=${{ secrets.SCRAPING_AUTHORIZATION_ESCAVADOR }}
-
-            SCRAPING_REDIS_HOST=${{ secrets.SCRAPING_REDIS_HOST }}
-            SCRAPING_REDIS_PORT=${{ secrets.SCRAPING_REDIS_PORT }}
             EOL
           EOF
 
