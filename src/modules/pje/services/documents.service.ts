@@ -17,6 +17,7 @@ export class DocumentoService {
   ): Promise<Buffer> {
     if (!processId || !documentoId || !regionTRT || !instancia) {
       this.logger.error('Parâmetros inválidos fornecidos');
+      return Buffer.alloc(0);
     }
     let tokenCaptcha;
     if (instancia === 'PRIMEIRO_GRAU') {
@@ -25,36 +26,34 @@ export class DocumentoService {
       tokenCaptcha = await redis.get('pje:token:captcha:2');
     }
 
-    try {
-      const url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${processId}/documentos/${documentoId}?tokenCaptcha=${tokenCaptcha}`;
-      const response = await axios.get(url, {
-        headers: {
-          Cookie: cookies,
-          'x-grau-instancia': instancia === 'PRIMEIRO_GRAU' ? '1' : '2',
-          referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${processId}/${instancia === 'PRIMEIRO_GRAU' ? '1' : '2'}`,
-          'user-agent':
-            userAgents[Math.floor(Math.random() * userAgents.length)],
-        },
-        responseType: 'arraybuffer',
-        withCredentials: true,
-      });
+    const url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${processId}/documentos/${documentoId}?tokenCaptcha=${tokenCaptcha}`;
+    const response = await axios.get(url, {
+      headers: {
+        Cookie: cookies,
+        'x-grau-instancia': instancia === 'PRIMEIRO_GRAU' ? '1' : '2',
+        referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${processId}/${instancia === 'PRIMEIRO_GRAU' ? '1' : '2'}`,
+        'user-agent': userAgents[Math.floor(Math.random() * userAgents.length)],
+      },
+      responseType: 'arraybuffer',
+      withCredentials: true,
+    });
 
-      const contentType = response.headers['content-type'] as string;
+    const contentType = response.headers['content-type'] as string;
 
-      const isHtml =
-        contentType.includes('text/html') ||
-        contentType.includes('text/plain') ||
-        contentType.includes('application/json');
-      if (isHtml) {
-        return Buffer.from(
-          await this.htmlToPdfBuffer((response.data as string).toString()),
-        );
-      }
-      return Buffer.from(response.data);
-    } catch (error) {
-      console.error('Erro ao buscar documento:', error);
-      throw new Error('Erro ao buscar documento');
+    const isHtml =
+      contentType.includes('text/html') ||
+      contentType.includes('text/plain') ||
+      contentType.includes('application/json');
+    if (isHtml) {
+      return Buffer.from(
+        await this.htmlToPdfBuffer((response.data as string).toString()),
+      );
     }
+    return Buffer.from(response.data);
+    // } catch (error) {
+    //   console.error('Erro ao buscar documento:', error);
+    //   throw new Error('Erro ao buscar documento');
+    // }
   }
 
   async htmlToPdfBuffer(html: string) {
