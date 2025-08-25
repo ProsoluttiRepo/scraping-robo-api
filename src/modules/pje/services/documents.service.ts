@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import redis from 'src/shared/redis';
 import puppeteer from 'puppeteer';
@@ -6,6 +6,8 @@ import { userAgents } from 'src/utils/user-agents';
 
 @Injectable()
 export class DocumentoService {
+  private readonly logger = new Logger(DocumentoService.name);
+
   async execute(
     processId: number,
     documentoId: number,
@@ -14,7 +16,7 @@ export class DocumentoService {
     cookies: string,
   ): Promise<Buffer> {
     if (!processId || !documentoId || !regionTRT || !instancia) {
-      throw new Error('Parâmetros inválidos fornecidos');
+      this.logger.error('Parâmetros inválidos fornecidos');
     }
     let tokenCaptcha;
     if (instancia === 'PRIMEIRO_GRAU') {
