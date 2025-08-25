@@ -24,7 +24,7 @@ export class ConsultarProcessoService {
       const webhookUrl = process.env.WEBHOOK_URL || '';
       await axios.post(webhookUrl, response, {
         headers: {
-          Authorization: `${process.env.AUTHORIZATION_ESCAVADOR || ''}`,
+          Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}`,
         },
       });
     } catch (error) {
