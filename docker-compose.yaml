@@ -3,6 +3,7 @@ version: '3'
 services:
   scraping-robo:
     build: .
+    shm_size: 1gb
     container_name: scraping-robo
     environment:
       - NODE_ENV=production

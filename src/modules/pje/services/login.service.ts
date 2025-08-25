@@ -67,6 +67,7 @@ export class PjeLoginService {
             '--disable-dev-shm-usage',
             '--single-process',
             '--disable-gpu',
+            '--disable-software-rasterizer',
           ],
         });
 
