@@ -1,6 +1,6 @@
 import { DocumentosRestritos, ItensProcesso } from 'src/interfaces';
-import { normalizeString } from './normalize-string';
 import { ProcessDocumentType } from 'src/interfaces/process-document.enum';
+import { normalizeString } from './normalize-string';
 
 export const normalizeDocsResponse = (
   regionTRT: number,
@@ -8,7 +8,7 @@ export const normalizeDocsResponse = (
 ): DocumentosRestritos[] => {
   if (!docs || !docs.length) return [];
   const docsFound: DocumentosRestritos[] = [];
-  const itensProcessoDocs: DocumentosRestritos[] = (
+  const itensProcessoDocs: DocumentosRestritos[] =
     docs
       ?.filter((item) => item.documento)
       ?.map((item, index) => ({
@@ -20,11 +20,8 @@ export const normalizeDocsResponse = (
         instancia: item.instancia,
         instanciaId: item.instanciaId,
         documentoId: item.id,
-      })) || []
-  )?.filter(
-    (doc, idx, arr) =>
-      arr.findIndex((d) => d.unique_name === doc.unique_name) === idx,
-  );
+      })) || [];
+
   const movimentacoes =
     (docs ?? []).map((item) => ({
       data: new Intl.DateTimeFormat('pt-BR').format(new Date(item.data)),
@@ -202,12 +199,16 @@ const getAcordaoValido = (docs: DocumentosRestritos[]) => {
  * @returns O documento correspondente à petição inicial, com o tipo ajustado.
  */
 const PeticaoDoc = (docs: DocumentosRestritos[]) => {
-  return {
-    ...docs.find((doc) =>
-      normalizeString(doc.titulo).match(/.*peticao.*inicial.*/i),
-    ),
-    tipo: ProcessDocumentType.PeticaoInicial,
-  };
+  const doc = docs.find((doc) =>
+    normalizeString(doc.titulo).match(/.*peticao.*inicial.*/i),
+  );
+  if (doc) {
+    return {
+      ...doc,
+      tipo: ProcessDocumentType.PeticaoInicial,
+    };
+  }
+  return null;
 };
 
 /**

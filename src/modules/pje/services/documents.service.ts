@@ -50,10 +50,6 @@ export class DocumentoService {
       );
     }
     return Buffer.from(response.data);
-    // } catch (error) {
-    //   console.error('Erro ao buscar documento:', error);
-    //   throw new Error('Erro ao buscar documento');
-    // }
   }
 
   async htmlToPdfBuffer(html: string) {
