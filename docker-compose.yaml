@@ -20,6 +20,7 @@ services:
       - NODE_ENV=production
       - REDIS_HOST=redis # nome do serviço Redis
       - REDIS_PORT=6379
+      - PORT=8081
     env_file:
       - .env
     command: node dist/main

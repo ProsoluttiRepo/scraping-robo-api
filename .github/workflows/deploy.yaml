@@ -32,7 +32,7 @@ jobs:
             cd ${{ secrets.SSH_APP_PATH }}
             cat > .env <<EOL
             NODE_ENV=production
-            PORT=3000
+            PORT=8081
 
             SCRAPING_API_KEY_2CAPTCHA=${{ secrets.SCRAPING_API_KEY_2CAPTCHA }}
             SCRAPING_PJE_USER_FIRST=${{ secrets.SCRAPING_PJE_USER_FIRST }}
