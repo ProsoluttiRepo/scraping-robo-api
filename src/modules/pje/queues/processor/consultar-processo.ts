@@ -23,11 +23,11 @@ export class ConsultarProcessoService {
 
       const webhookUrl = process.env.WEBHOOK_URL || '';
       this.logger.log('REPONSE', response);
-      await axios.post(webhookUrl, response, {
-        headers: {
-          Authorization: `${process.env.AUTHORIZATION_ESCAVADOR || ''}`,
-        },
-      });
+      // await axios.post(webhookUrl, response, {
+      //   headers: {
+      //     Authorization: `${process.env.AUTHORIZATION_ESCAVADOR || ''}`,
+      //   },
+      // });
     } catch (error) {
       this.logger.error('Erro ao processar número: ', error);
     }
