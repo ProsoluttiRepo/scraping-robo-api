@@ -46,4 +46,4 @@ jobs:
             echo "Recriando container scraping-robo..."
             docker rm -f scraping-robo || true
             docker compose up -d --build scraping-robo
-EOF
+            EOF
