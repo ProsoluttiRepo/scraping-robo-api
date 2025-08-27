@@ -25,16 +25,6 @@ jobs:
             -e "ssh -o StrictHostKeyChecking=no -p 22100" \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.SSH_APP_PATH }}/
 
-      - name: Clear Redis keys
-        run: |
-          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 22100 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            echo "🔥 Limpando chaves do Redis..."
-            COUNT=$(redis-cli -h redis -p 6379 KEYS "pje:auth:cookies:*" | xargs -r redis-cli -h redis -p 6379 DEL)
-            echo "✅ $COUNT chaves removidas"
-            echo "🔍 Restantes:"
-            redis-cli -h redis -p 6379 KEYS "pje:auth:cookies:*"
-          EOF
-
       # 5️⃣ Builda e sobe os containers no servidor
       - name: Build and run with Docker Compose
         run: |
