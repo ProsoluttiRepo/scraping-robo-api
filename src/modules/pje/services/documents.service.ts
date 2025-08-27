@@ -66,10 +66,13 @@ export class DocumentoService {
         '--disable-software-rasterizer',
       ],
     });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    const pdfBuffer = await page.pdf({ format: 'A4' });
-    await browser.close();
-    return pdfBuffer;
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdfBuffer = await page.pdf({ format: 'A4' });
+      return pdfBuffer;
+    } finally {
+      await browser.close();
+    }
   }
 }

@@ -58,7 +58,7 @@ export class ProcessDocumentsFindService {
    * @param force força a troca de conta imediatamente
    */
   private getConta(force = false): { username: string; password: string } {
-    if (force || this.contadorProcessos >= 2) {
+    if (force || this.contadorProcessos >= 5) {
       this.contaIndex = (this.contaIndex + 1) % this.contas.length;
       this.contadorProcessos = 0;
       this.logger.debug(
@@ -142,7 +142,12 @@ export class ProcessDocumentsFindService {
       for (let i = 1; i < 3; i++) {
         try {
           // Delay antes da requisição de dados básicos
-          await this.randomDelay();
+          const delayMs =
+            Math.floor(Math.random() * (20000 - 15000 + 1)) + 15000;
+          this.logger.debug(
+            `⏱ Delay de ${delayMs}ms antes de dar inicio a ${i}ª instância`,
+          );
+          await this.delay(delayMs);
 
           const responseDadosBasicos = await axios.get<DetalheProcesso[]>(
             `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
@@ -162,7 +167,10 @@ export class ProcessDocumentsFindService {
           const detalheProcesso = responseDadosBasicos.data[0];
           if (!detalheProcesso) continue;
 
-          await this.randomDelay();
+          this.logger.debug(
+            `⏱ Delay de ${delayMs}ms antes de processar a ${i}ª instância`,
+          );
+          await this.delay(delayMs);
           let processoResponse: ProcessosResponse = await this.fetchProcess(
             numeroDoProcesso,
             detalheProcesso.id,
@@ -177,12 +185,18 @@ export class ProcessDocumentsFindService {
             'imagem' in processoResponse &&
             'tokenDesafio' in processoResponse
           ) {
-            await this.randomDelay();
+            this.logger.debug(
+              `⏱ Delay de ${delayMs}ms antes de resolver o captcha da ${i}ª instância`,
+            );
+            await this.delay(delayMs);
             const resposta = await this.fetchCaptcha(
               processoResponse.imagem,
               processoResponse.tokenDesafio,
             );
-            await this.randomDelay();
+            this.logger.debug(
+              `⏱ Delay de ${delayMs}ms antes de processar a ${i}ª instância depois do resolvimento do captcha`,
+            );
+            await this.delay(delayMs);
             processoResponse = await this.fetchProcess(
               numeroDoProcesso,
               detalheProcesso.id,
@@ -208,13 +222,16 @@ export class ProcessDocumentsFindService {
               ?.filter((item) => item !== null) || [];
 
           // Delay antes do upload dos documentos
-          await this.randomDelay();
 
           const normalizeDocsRestrict = normalizeDocsResponse(
             regionTRT,
             itensProcesso,
           );
           let documentosRestritos: DocumentosRestritos[] = [];
+          this.logger.debug(
+            `⏱ Delay de ${delayMs}ms antes de dar inicio a extração de documentos da ${i}ª instância`,
+          );
+          await this.delay(delayMs);
           if (normalizeDocsRestrict.length > 0) {
             documentosRestritos = await this.uploadDocumentosRestritos(
               normalizeDocsRestrict,
@@ -350,25 +367,62 @@ export class ProcessDocumentsFindService {
     cookies: string,
   ): Promise<DocumentosRestritos[]> {
     const uploadedDocuments: DocumentosRestritos[] = [];
+    const batchSize = 2; // processa 2 documentos simultaneamente
+    const maxRetries = 2; // tentativas em caso de falha temporária
 
-    for (const documento of documentos) {
-      try {
-        const buffer = await this.documentoService.execute(
-          documento.instanciaId,
-          documento.documentoId,
-          regionTRT,
-          documento.instancia,
-          cookies,
-        );
-        const fileName = `${documento.documentoId}.pdf`;
-        const url = await this.awsS3Service.uploadPdf(buffer, fileName);
-        uploadedDocuments.push({ ...documento, link_api: url });
-      } catch (error) {
-        this.logger.error(
-          `Erro ao fazer upload do documento ${documento.documentoId}:`,
-          error,
-        );
-      }
+    // divide em batches
+    for (let i = 0; i < documentos.length; i += batchSize) {
+      const batch = documentos.slice(i, i + batchSize);
+
+      // processa cada batch em paralelo
+      await Promise.all(
+        batch.map(async (documento) => {
+          let attempt = 0;
+          while (attempt <= maxRetries) {
+            try {
+              const delayMs =
+                Math.floor(Math.random() * (20000 - 15000 + 1)) + 15000;
+              this.logger.debug(
+                `⏱ Delay de ${delayMs}ms antes de processar documento ${documento.documentoId}`,
+              );
+              await this.delay(delayMs);
+
+              this.logger.debug(
+                `📄 Iniciando upload do documento ${documento.documentoId} da instância ${documento.instancia}`,
+              );
+
+              const buffer = await this.documentoService.execute(
+                documento.instanciaId,
+                documento.documentoId,
+                regionTRT,
+                documento.instancia,
+                cookies,
+              );
+
+              const fileName = `${documento.documentoId}.pdf`;
+              const url = await this.awsS3Service.uploadPdf(buffer, fileName);
+
+              uploadedDocuments.push({ ...documento, link_api: url });
+              break; // sucesso, sai do loop de retry
+            } catch (error) {
+              attempt++;
+              this.logger.warn(
+                `❌ Falha ao processar documento ${documento.documentoId}, tentativa ${attempt} de ${maxRetries}: ${error.message}`,
+              );
+              if (attempt > maxRetries) {
+                this.logger.error(
+                  `💥 Erro definitivo ao processar documento ${documento.documentoId}`,
+                  error,
+                );
+              } else {
+                // espera antes de tentar novamente (retry exponencial simples)
+                const waitTime = attempt * 3000;
+                await this.delay(waitTime);
+              }
+            }
+          }
+        }),
+      );
     }
 
     return uploadedDocuments;

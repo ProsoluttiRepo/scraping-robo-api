@@ -15,7 +15,7 @@ export class ConsultarProcessoDocumentoService {
 
   @Process({
     name: 'consulta-processo-documento',
-    concurrency: 5,
+    concurrency: 1,
   })
   async execute(job: Job<{ numero: string }>) {
     const { numero } = job.data;
@@ -33,11 +33,11 @@ export class ConsultarProcessoDocumentoService {
       this.logger.log('RESPONSE DOCUMENTOS', response);
 
       const webhookUrl = process.env.WEBHOOK_URL || '';
-      await axios.post(webhookUrl, response, {
-        headers: {
-          Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}`,
-        },
-      });
+      // await axios.post(webhookUrl, response, {
+      //   headers: {
+      //     Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}`,
+      //   },
+      // });
     } catch (error) {
       console.error('Erro ao processar o documento:', error);
       throw error; // Re-throw the error to ensure the job fails
