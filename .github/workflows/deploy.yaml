@@ -37,8 +37,7 @@ jobs:
             fi
             # Remove possíveis caracteres invisíveis no início do arquivo
             sed -i '1s/^\xEF\xBB\xBF//' .env
-EOF
-
+            EOF
       # 5️⃣ Builda e sobe os containers no servidor
       - name: Build and run with Docker Compose
         run: |
