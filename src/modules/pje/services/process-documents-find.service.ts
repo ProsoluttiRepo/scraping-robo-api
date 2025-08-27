@@ -390,7 +390,14 @@ export class ProcessDocumentsFindService {
               this.logger.debug(
                 `📄 Iniciando upload do documento ${documento.documentoId} da instância ${documento.instancia}`,
               );
-
+              if (
+                !documento.instanciaId ||
+                !documento.documentoId ||
+                !regionTRT ||
+                !documento.instancia
+              ) {
+                continue;
+              }
               const buffer = await this.documentoService.execute(
                 documento.instanciaId,
                 documento.documentoId,

@@ -30,14 +30,14 @@ export class ConsultarProcessoDocumentoService {
       await redis.del('pje:captcha:*'); // deleta todas
 
       const response = await this.processDocumentsFindService.execute(numero);
-      this.logger.log('RESPONSE DOCUMENTOS', response);
+      this.logger.log('RESPONSE:', response.numero_processo);
 
       const webhookUrl = process.env.WEBHOOK_URL || '';
-      // await axios.post(webhookUrl, response, {
-      //   headers: {
-      //     Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}`,
-      //   },
-      // });
+      await axios.post(webhookUrl, response, {
+        headers: {
+          Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}`,
+        },
+      });
     } catch (error) {
       console.error('Erro ao processar o documento:', error);
       throw error; // Re-throw the error to ensure the job fails
