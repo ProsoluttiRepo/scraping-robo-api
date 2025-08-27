@@ -25,7 +25,21 @@ jobs:
             -e "ssh -o StrictHostKeyChecking=no -p 22100" \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.SSH_APP_PATH }}/
 
-      # 4️⃣ Builda e sobe os containers no servidor
+      # 4️⃣ Garante que o .env esteja correto no servidor
+      - name: Ensure .env exists on server
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 22100 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd ${{ secrets.SSH_APP_PATH }}
+            # Se não existir, cria a partir do exemplo
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              echo "Arquivo .env criado a partir de .env.example"
+            fi
+            # Remove possíveis caracteres invisíveis no início do arquivo
+            sed -i '1s/^\xEF\xBB\xBF//' .env
+EOF
+
+      # 5️⃣ Builda e sobe os containers no servidor
       - name: Build and run with Docker Compose
         run: |
           sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 22100 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
@@ -33,4 +47,4 @@ jobs:
             echo "Recriando container scraping-robo..."
             docker rm -f scraping-robo || true
             docker compose up -d --build scraping-robo
-          EOF
+EOF
