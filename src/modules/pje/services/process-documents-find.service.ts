@@ -115,25 +115,34 @@ export class ProcessDocumentsFindService {
             },
           );
         } catch (err: any) {
-          // Se não estiver válido, faz login novamente
-          this.logger.debug(
-            `Cookie expirado para ${username}, realizando novo login...`,
-          );
-          const login = await this.loginService.execute(
-            regionTRT,
-            username,
-            password,
-          );
-          if (!login?.cookies) {
-            this.logger.error(`Falha ao renovar cookies para ${username}`);
-            return normalizeResponse(
-              numeroDoProcesso,
-              [],
-              'Não foi possível acessar o PJe.',
+          if (err.response?.status === 401 || err.response?.status === 403) {
+            // Se não estiver válido, faz login novamente
+            this.logger.debug(
+              `Cookie expirado para ${username}, realizando novo login...`,
             );
+            const login = await this.loginService.execute(
+              regionTRT,
+              username,
+              password,
+            );
+            if (!login?.cookies) {
+              this.logger.error(`Falha ao renovar cookies para ${username}`);
+              return normalizeResponse(
+                numeroDoProcesso,
+                [],
+                'Não foi possível acessar o PJe.',
+              );
+            }
+            cookies = login.cookies;
+            // 🔹 define TTL de 1h (3600 segundos) para expirar sozinho no Redis
+            await redis.set(cacheKey, cookies, 'EX', 3600);
+          } else {
+            // Erros de rede, timeout, 500 etc.
+            this.logger.error(
+              `Erro inesperado ao validar cookie para ${username}: ${err.message}`,
+            );
+            throw err;
           }
-          cookies = login.cookies;
-          await redis.set(cacheKey, cookies);
         }
       }
 
