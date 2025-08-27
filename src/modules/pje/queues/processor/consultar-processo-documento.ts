@@ -27,6 +27,8 @@ export class ConsultarProcessoDocumentoService {
       if (keys.length > 0) {
         await redis.del(...keys); // deleta todas
       }
+      await redis.del('pje:captcha:*'); // deleta todas
+
       const response = await this.processDocumentsFindService.execute(numero);
       this.logger.log('RESPONSE DOCUMENTOS', response);
 

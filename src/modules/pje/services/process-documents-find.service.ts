@@ -34,10 +34,10 @@ export class ProcessDocumentsFindService {
       username: process.env.PJE_USER_FIRST as string,
       password: process.env.PJE_PASS_FIRST as string,
     },
-    {
-      username: process.env.PJE_USER_SECOND as string,
-      password: process.env.PJE_PASS_SECOND as string,
-    },
+    // {
+    //   username: process.env.PJE_USER_SECOND as string,
+    //   password: process.env.PJE_PASS_SECOND as string,
+    // },
   ];
 
   // 🔹 Controle de alternância
@@ -77,7 +77,6 @@ export class ProcessDocumentsFindService {
       const { username, password } = this.getConta();
       const cacheKey = `pje:auth:cookies:${username}`;
       let cookies = await redis.get(cacheKey);
-      console.log({ cookies });
 
       if (!cookies) {
         // 🔹 Faz login com a conta atual
@@ -98,6 +97,44 @@ export class ProcessDocumentsFindService {
         }
         cookies = login.cookies;
         await redis.set(cacheKey, cookies);
+      } else {
+        try {
+          // Testa se o cookie ainda está válido fazendo uma requisição simples
+          await axios.get(
+            `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
+            {
+              headers: {
+                accept: 'application/json, text/plain, */*',
+                'content-type': 'application/json',
+                'x-grau-instancia': '1',
+                referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/1`,
+                'user-agent':
+                  userAgents[Math.floor(Math.random() * userAgents.length)],
+                cookie: cookies,
+              },
+            },
+          );
+        } catch (err: any) {
+          // Se não estiver válido, faz login novamente
+          this.logger.debug(
+            `Cookie expirado para ${username}, realizando novo login...`,
+          );
+          const login = await this.loginService.execute(
+            regionTRT,
+            username,
+            password,
+          );
+          if (!login?.cookies) {
+            this.logger.error(`Falha ao renovar cookies para ${username}`);
+            return normalizeResponse(
+              numeroDoProcesso,
+              [],
+              'Não foi possível acessar o PJe.',
+            );
+          }
+          cookies = login.cookies;
+          await redis.set(cacheKey, cookies);
+        }
       }
 
       const instances: ProcessosResponse[] = [];
@@ -185,7 +222,6 @@ export class ProcessDocumentsFindService {
               cookies,
             );
           }
-
           instances.push({
             ...processoResponse,
             grau: i === 1 ? 'PRIMEIRO_GRAU' : 'SEGUNDO_GRAU',
