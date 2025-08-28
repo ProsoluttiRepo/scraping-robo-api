@@ -108,7 +108,11 @@ export class PjeLoginService {
 
         // 🔹 Validação do login (checa se o painel carregou)
         try {
-          await page.waitForSelector('text/Meu painel', { timeout: 8000 });
+          await page.waitForSelector('button[name="Meu Painel"]', {
+            visible: true,
+            timeout: 5000,
+          });
+          await page.click('button[name="Meu Painel"]');
         } catch {
           throw new ServiceUnavailableException(
             `Falha no login: painel não encontrado no TRT-${regionTRT}`,
