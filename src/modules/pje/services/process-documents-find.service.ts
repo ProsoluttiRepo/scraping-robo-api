@@ -34,10 +34,10 @@ export class ProcessDocumentsFindService {
       username: process.env.PJE_USER_FIRST as string,
       password: process.env.PJE_PASS_FIRST as string,
     },
-    // {
-    //   username: process.env.PJE_USER_SECOND as string,
-    //   password: process.env.PJE_PASS_SECOND as string,
-    // },
+    {
+      username: process.env.PJE_USER_SECOND as string,
+      password: process.env.PJE_PASS_SECOND as string,
+    },
   ];
 
   // 🔹 Controle de alternância
@@ -71,80 +71,31 @@ export class ProcessDocumentsFindService {
 
   async execute(numeroDoProcesso: string, tentativas = 0): Promise<Root> {
     const regionTRT = Number(numeroDoProcesso.split('.')[3]);
+    const { username, password } = this.getConta();
+    console.log({ regionTRT, username, password });
     try {
       const tokenCaptcha = await redis.get('pje:token:captcha');
       // 🔹 Escolhe a conta atual
-      const { username, password } = this.getConta();
-      const cacheKey = `pje:auth:cookies:${username}`;
-      let cookies = await redis.get(cacheKey);
 
-      if (!cookies) {
-        // 🔹 Faz login com a conta atual
-        const login = await this.loginService.execute(
-          regionTRT,
-          username,
-          password,
-        );
-        if (!login?.cookies) {
-          this.logger.error(
-            `Falha ao obter cookies de autenticação para ${username}`,
-          );
-          return normalizeResponse(
-            numeroDoProcesso,
-            [],
-            'Não foi possível acessar o PJe.',
-          );
-        }
-        cookies = login.cookies;
-        await redis.set(cacheKey, cookies);
-      } else {
-        try {
-          // Testa se o cookie ainda está válido fazendo uma requisição simples
-          await axios.get(
-            `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
-            {
-              headers: {
-                accept: 'application/json, text/plain, */*',
-                'content-type': 'application/json',
-                'x-grau-instancia': '1',
-                referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/1`,
-                'user-agent':
-                  userAgents[Math.floor(Math.random() * userAgents.length)],
-                cookie: cookies,
-              },
-            },
-          );
-        } catch (err: any) {
-          if (err.response?.status === 401 || err.response?.status === 403) {
-            // Se não estiver válido, faz login novamente
-            this.logger.debug(
-              `Cookie expirado para ${username}, realizando novo login...`,
-            );
-            const login = await this.loginService.execute(
-              regionTRT,
-              username,
-              password,
-            );
-            if (!login?.cookies) {
-              this.logger.error(`Falha ao renovar cookies para ${username}`);
-              return normalizeResponse(
-                numeroDoProcesso,
-                [],
-                'Não foi possível acessar o PJe.',
-              );
-            }
-            cookies = login.cookies;
-            // 🔹 define TTL de 1h (3600 segundos) para expirar sozinho no Redis
-            await redis.set(cacheKey, cookies, 'EX', 3600);
-          } else {
-            // Erros de rede, timeout, 500 etc.
-            this.logger.error(
-              `Erro inesperado ao validar cookie para ${username}: ${err.message}`,
-            );
-            throw err;
-          }
-        }
-      }
+      const { cookies } = await this.loginService.execute(
+        regionTRT,
+        username,
+        password,
+      );
+      await axios.get(
+        `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
+        {
+          headers: {
+            accept: 'application/json, text/plain, */*',
+            'content-type': 'application/json',
+            'x-grau-instancia': '1',
+            referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/1`,
+            'user-agent':
+              userAgents[Math.floor(Math.random() * userAgents.length)],
+            cookie: cookies,
+          },
+        },
+      );
 
       const instances: ProcessosResponse[] = [];
 
@@ -263,28 +214,51 @@ export class ProcessDocumentsFindService {
 
       return normalizeResponse(numeroDoProcesso, instances, '', true);
     } catch (error) {
-      this.logger.warn(
-        `Erro geral para ${numeroDoProcesso}, alternando conta...`,
-      );
-      if (tentativas >= 3) {
-        return normalizeResponse(
-          numeroDoProcesso,
-          [],
-          'Falha após múltiplas tentativas',
-        );
-      }
-      const { username, password } = this.getConta(true); // força troca
-      const cacheKey = `pje:auth:cookies:${username}`;
-      let cookies = await redis.get(cacheKey);
-      const login = await this.loginService.execute(
-        regionTRT,
-        username,
-        password,
-      );
-      cookies = login.cookies;
-      await redis.set(cacheKey, cookies);
+      console.log(error.response?.data);
 
-      return await this.execute(numeroDoProcesso, tentativas + 1);
+      if (error.response?.data?.codigoErro === 'ARQ-028') {
+        this.logger.warn(
+          `Erro ARQ-028 com ${username}, tentando novamente mesma conta...`,
+        );
+        if (tentativas >= 1) {
+          return normalizeResponse(
+            numeroDoProcesso,
+            [],
+            'ANÁLISE - FALHA AO TENTAR ACESSAR INFORMAÇÕES, TENTE NOVAMENTE MAIS TARDE',
+          );
+        }
+
+        // 🔹 tenta logar de novo com a MESMA conta
+        await this.loginService.execute(regionTRT, username, password, true);
+        return await this.execute(numeroDoProcesso, tentativas + 1);
+      }
+
+      // 🔹 Para outros erros → troca de conta
+      if (tentativas < this.contas.length) {
+        this.logger.warn(
+          `⚠️ Erro com a conta ${username}, tentando próxima conta...`,
+        );
+
+        // força troca de conta
+        const { username: newUser, password: newPass } = this.getConta(true);
+        if (username === newUser) {
+          // se só tiver uma conta configurada, não entra em loop infinito
+          return normalizeResponse(
+            numeroDoProcesso,
+            [],
+            'ANÁLISE - FALHA AO TENTAR ACESSAR INFORMAÇÕES, TENTE NOVAMENTE MAIS TARDE',
+          );
+        }
+        await this.loginService.execute(regionTRT, newUser, newPass, true);
+        return await this.execute(numeroDoProcesso, tentativas + 1);
+      }
+
+      // 🔹 Se já tentou todas as contas, falha de vez
+      return normalizeResponse(
+        numeroDoProcesso,
+        [],
+        'ANÁLISE - FALHA AO TENTAR ACESSAR INFORMAÇÕES, TENTE NOVAMENTE MAIS TARDE',
+      );
     }
   }
 
