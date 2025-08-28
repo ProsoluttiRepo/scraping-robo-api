@@ -17,7 +17,7 @@ import { ScheduleModule } from '@nestjs/schedule';
       defaultJobOptions: {
         removeOnComplete: 100,
         removeOnFail: 1000,
-        attempts: 3,
+        attempts: 1,
         backoff: {
           type: 'exponential',
           delay: 1000,
