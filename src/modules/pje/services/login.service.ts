@@ -30,22 +30,21 @@ export class PjeLoginService {
     regionTRT: number,
     username: string,
     password: string,
+    expired: boolean = false,
   ): Promise<{ cookies: string }> {
     const cacheKey = `pje:session:${regionTRT}:${username}`;
 
     // 1️⃣ Verifica se já existe sessão em cache
     const cachedCookies = await this.redis.get(cacheKey);
-    if (cachedCookies) {
+    if (cachedCookies && !expired) {
       this.logger.debug(`Sessão reutilizada para TRT-${regionTRT}`);
       return { cookies: cachedCookies };
     }
 
     const loginUrl = `https://pje.trt${regionTRT}.jus.br/primeirograu/login.seam`;
-    // const username = process.env.PJE_USER as string;
-    // const password = process.env.PJE_PASS as string;
 
     let attempt = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 2;
 
     while (attempt < maxAttempts) {
       let browser: Browser | null = null;
@@ -56,7 +55,6 @@ export class PjeLoginService {
           `Tentativa ${attempt} de login no PJe TRT-${regionTRT}...`,
         );
 
-        // 🔹 Launch Puppeteer com stealth
         browser = await puppeteer.launch({
           executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
           headless: true,
@@ -93,7 +91,7 @@ export class PjeLoginService {
           }),
         ]);
 
-        // Login com delays humanizados
+        // Login
         await page.waitForSelector('#username', { visible: true });
         await page.type('#username', username, {
           delay: 100 + Math.random() * 100,
@@ -108,12 +106,21 @@ export class PjeLoginService {
           page.click('input[type="submit"]'),
         ]);
 
+        // 🔹 Validação do login (checa se o painel carregou)
+        try {
+          await page.waitForSelector('text/Meu painel', { timeout: 8000 });
+        } catch {
+          throw new ServiceUnavailableException(
+            `Falha no login: painel não encontrado no TRT-${regionTRT}`,
+          );
+        }
+
+        // 🔹 Se chegou até aqui, login foi bem-sucedido
         const cookies = await page.cookies();
         const cookieString = cookies
           .map((c) => `${c.name}=${c.value}`)
           .join('; ');
 
-        // 3️⃣ Salva no Redis com TTL (30 min)
         await this.redis.set(cacheKey, cookieString, 'EX', 60 * 30);
 
         this.logger.debug(
