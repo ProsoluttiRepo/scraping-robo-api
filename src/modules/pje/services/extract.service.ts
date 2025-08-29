@@ -51,7 +51,7 @@ export class PdfExtractService {
       id: string;
     }[]
   > {
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const pdfjsLib = await this.loadPdfJs();
     const uint8Array = new Uint8Array(buffer);
     const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
     const pdf = await loadingTask.promise;
@@ -135,5 +135,8 @@ export class PdfExtractService {
     }
 
     return bookmarks;
+  }
+  async loadPdfJs() {
+    return await import('pdfjs-dist/legacy/build/pdf.mjs');
   }
 }
