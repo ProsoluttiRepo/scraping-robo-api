@@ -2,22 +2,18 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
-import {
-  DetalheProcesso,
-  DocumentosRestritos,
-  ItensProcesso,
-  ProcessosResponse,
-} from 'src/interfaces';
+import * as fs from 'fs';
+import { DetalheProcesso, Documento, ProcessosResponse } from 'src/interfaces';
 import { Root } from 'src/interfaces/normalize';
 import { AwsS3Service } from 'src/services/aws-s3.service';
 import redis from 'src/shared/redis';
-import { normalizeDocsResponse } from 'src/utils/documents';
+import { normalizeString } from 'src/utils/normalize-string';
 import { normalizeResponse } from 'src/utils/normalizeResponse';
 import { userAgents } from 'src/utils/user-agents';
 import { CaptchaService } from './captcha.service';
 import { DocumentoService } from './documents.service';
+import { PdfExtractService } from './extract.service';
 import { PjeLoginService } from './login.service';
-
 @Injectable()
 export class ProcessDocumentsFindService {
   logger = new Logger(ProcessDocumentsFindService.name);
@@ -27,6 +23,7 @@ export class ProcessDocumentsFindService {
     private readonly captchaService: CaptchaService,
     private readonly documentoService: DocumentoService,
     private readonly awsS3Service: AwsS3Service,
+    private readonly pdfExtractService: PdfExtractService,
   ) {}
   // 🔹 Contas disponíveis
   private contas = [
@@ -98,8 +95,7 @@ export class ProcessDocumentsFindService {
       );
 
       const instances: ProcessosResponse[] = [];
-
-      for (let i = 1; i < 3; i++) {
+      for (let i = 1; i <= 3; i++) {
         try {
           // Delay antes da requisição de dados básicos
           const delayMs =
@@ -145,18 +141,10 @@ export class ProcessDocumentsFindService {
             'imagem' in processoResponse &&
             'tokenDesafio' in processoResponse
           ) {
-            this.logger.debug(
-              `⏱ Delay de ${delayMs}ms antes de resolver o captcha da ${i}ª instância`,
-            );
-            await this.delay(delayMs);
             const resposta = await this.fetchCaptcha(
               processoResponse.imagem,
               processoResponse.tokenDesafio,
             );
-            this.logger.debug(
-              `⏱ Delay de ${delayMs}ms antes de processar a ${i}ª instância depois do resolvimento do captcha`,
-            );
-            await this.delay(delayMs);
             processoResponse = await this.fetchProcess(
               numeroDoProcesso,
               detalheProcesso.id,
@@ -168,41 +156,10 @@ export class ProcessDocumentsFindService {
             );
           }
 
-          const itensProcesso =
-            processoResponse.itensProcesso
-              ?.map(
-                (itens) =>
-                  ({
-                    ...itens,
-                    instancia: i === 1 ? 'PRIMEIRO_GRAU' : 'SEGUNDO_GRAU',
-                    documentoId: itens.id,
-                    instanciaId: processoResponse.id,
-                  }) as ItensProcesso,
-              )
-              ?.filter((item) => item !== null) || [];
-
-          // Delay antes do upload dos documentos
-
-          const normalizeDocsRestrict = normalizeDocsResponse(
-            regionTRT,
-            itensProcesso,
-          );
-          let documentosRestritos: DocumentosRestritos[] = [];
-          this.logger.debug(
-            `⏱ Delay de ${delayMs}ms antes de dar inicio a extração de documentos da ${i}ª instância`,
-          );
-          await this.delay(delayMs);
-          if (normalizeDocsRestrict.length > 0) {
-            documentosRestritos = await this.uploadDocumentosRestritos(
-              normalizeDocsRestrict,
-              regionTRT,
-              cookies,
-            );
-          }
           instances.push({
             ...processoResponse,
             grau: i === 1 ? 'PRIMEIRO_GRAU' : 'SEGUNDO_GRAU',
-            documentos_restritos: documentosRestritos,
+            instance: i.toString(),
           });
         } catch (err) {
           this.logger.warn(
@@ -212,10 +169,21 @@ export class ProcessDocumentsFindService {
         }
       }
 
-      return normalizeResponse(numeroDoProcesso, instances, '', true);
-    } catch (error) {
-      console.log(error.response?.data);
+      const documentosRestritos = await this.uploadDocumentosRestritos(
+        regionTRT,
+        cookies,
+        instances,
+        numeroDoProcesso,
+      );
+      const newInstances = instances.map((instance) => {
+        return {
+          ...instance,
+          documentos: documentosRestritos,
+        };
+      });
 
+      return normalizeResponse(numeroDoProcesso, newInstances, '', true);
+    } catch (error) {
       if (error.response?.data?.codigoErro === 'ARQ-028') {
         this.logger.warn(
           `Erro ARQ-028 com ${username}, tentando novamente mesma conta...`,
@@ -262,7 +230,6 @@ export class ProcessDocumentsFindService {
     }
   }
 
-  // Mesma ideia de delay dentro do fetchProcess e fetchCaptcha se necessário
   async fetchProcess(
     numeroDoProcesso: string,
     detalheProcessoId: string,
@@ -343,78 +310,142 @@ export class ProcessDocumentsFindService {
       return '';
     }
   }
-
   async uploadDocumentosRestritos(
-    documentos: DocumentosRestritos[],
     regionTRT: number,
     cookies: string,
-  ): Promise<DocumentosRestritos[]> {
-    const uploadedDocuments: DocumentosRestritos[] = [];
-    const batchSize = 2; // processa 2 documentos simultaneamente
-    const maxRetries = 2; // tentativas em caso de falha temporária
+    instances: ProcessosResponse[],
+    processNumber: string,
+  ): Promise<Documento[]> {
+    this.logger.debug(`🔒 Iniciando upload de documentos restritos...`);
 
-    // divide em batches
-    for (let i = 0; i < documentos.length; i += batchSize) {
-      const batch = documentos.slice(i, i + batchSize);
+    const uploadedDocuments: Documento[] = [];
+    const processedDocumentIds = new Set<string>(); // para evitar duplicidade
+    const delayMs = Math.floor(Math.random() * (20000 - 15000 + 1)) + 15000;
 
-      // processa cada batch em paralelo
-      await Promise.all(
-        batch.map(async (documento) => {
-          let attempt = 0;
-          while (attempt <= maxRetries) {
-            try {
-              const delayMs =
-                Math.floor(Math.random() * (20000 - 15000 + 1)) + 15000;
-              this.logger.debug(
-                `⏱ Delay de ${delayMs}ms antes de processar documento ${documento.documentoId}`,
-              );
-              await this.delay(delayMs);
+    // Regex para tipos de documentos seguindo o modelo /.*palavra1.*palavra2.*/i
+    const regexDocumentos = [
+      // Processo principal / execução
+      /.*peticao.*inicial.*/i,
+      /.*sentenca.*/i,
+      /.*embargos.*de.*declaracao.*/i,
+      /.*recurso.*ordinario.*/i,
+      /.*acordao.*/i,
+      /.*recurso.*de.*revista.*/i,
+      /.*decisao.*de.*admissibilidade.*/i,
+      /.*agravo.*de.*instrumento.*/i,
+      /.*decisao.*/i,
+      /.*decisao.*\/.*acordao.*/i,
+      /.*agravo.*interno.*/i,
+      /.*recurso.*extraordinario.*/i,
+      /.*planilha.*de.*calculo.*/i,
+      /.*embargos.*a.*execucao.*/i,
+      /.*agravo.*de.*peticao.*/i,
 
-              this.logger.debug(
-                `📄 Iniciando upload do documento ${documento.documentoId} da instância ${documento.instancia}`,
-              );
-              if (
-                !documento.instanciaId ||
-                !documento.documentoId ||
-                !regionTRT ||
-                !documento.instancia
-              ) {
-                continue;
-              }
-              const buffer = await this.documentoService.execute(
-                documento.instanciaId,
-                documento.documentoId,
-                regionTRT,
-                documento.instancia,
-                cookies,
-              );
+      // Documentos aleatórios antes da sentença
+      /.*procuracao.*/i,
+      /.*habilitacao.*/i,
+      /.*substabelecimento.*/i,
 
-              const fileName = `${documento.documentoId}.pdf`;
-              const url = await this.awsS3Service.uploadPdf(buffer, fileName);
+      // Documentos aleatórios após a sentença
+      /.*manifestacao.*/i,
+      /.*ccb.*/i,
+      /.*cessao.*/i,
+      /.*alvara.*/i,
+      /.*transito.*em.*julgado.*/i,
+      /.*peticionamentos.*avulsos.*/i,
+      /.*decisoes.*/i,
+      /.*despachos.*/i,
+      /.*intimacoes.*/i,
 
-              uploadedDocuments.push({ ...documento, link_api: url });
-              break; // sucesso, sai do loop de retry
-            } catch (error) {
-              attempt++;
-              this.logger.warn(
-                `❌ Falha ao processar documento ${documento.documentoId}, tentativa ${attempt} de ${maxRetries}: ${error.message}`,
-              );
-              if (attempt > maxRetries) {
-                this.logger.error(
-                  `💥 Erro definitivo ao processar documento ${documento.documentoId}`,
-                  error,
-                );
-              } else {
-                // espera antes de tentar novamente (retry exponencial simples)
-                const waitTime = attempt * 3000;
-                await this.delay(waitTime);
-              }
-            }
+      // Primeira instância
+      /.*prevencao.*/i,
+    ];
+
+    try {
+      // 1️⃣ Baixa todos os PDFs das instâncias
+      const buffersPorInstancia: { [instanciaId: string]: Buffer } = {};
+      for (const instance of instances) {
+        this.logger.debug(
+          `⏱ Delay de ${delayMs}ms antes de buscar documento da ${instance.instance}ª instância`,
+        );
+        await this.delay(delayMs);
+
+        const filePath = await this.documentoService.execute(
+          instance.id,
+          regionTRT,
+          instance.instance,
+          cookies,
+          processNumber,
+        );
+
+        const fileBuffer = fs.readFileSync(filePath);
+        buffersPorInstancia[instance.id] = fileBuffer;
+
+        // Remove arquivo temporário
+        try {
+          fs.unlinkSync(filePath);
+          this.logger.debug(
+            `Arquivo temporário ${filePath} deletado com sucesso`,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Não foi possível deletar ${filePath}: ${err.message}`,
+          );
+        }
+      }
+
+      // 2️⃣ Para cada PDF, extrai bookmarks dos tipos desejados
+      for (const [, buffer] of Object.entries(buffersPorInstancia)) {
+        const bookmarks = await this.pdfExtractService.extractBookmarks(buffer);
+
+        // Filtra bookmarks usando regex
+        const bookmarksFiltrados = bookmarks.filter((b) =>
+          regexDocumentos.some((r) => r.test(normalizeString(b.title))),
+        );
+
+        for (const bookmark of bookmarksFiltrados) {
+          // Checa se já foi processado
+          if (processedDocumentIds.has(bookmark.id)) {
+            this.logger.debug(
+              `Documento "${bookmark.title}" (id: ${bookmark.id}) já processado, pulando.`,
+            );
+            continue;
           }
-        }),
-      );
-    }
 
-    return uploadedDocuments;
+          // Extrai páginas correspondentes
+          const extractedPdfBuffer =
+            await this.pdfExtractService.extractPagesByIndex(
+              buffer,
+              bookmark.id,
+            );
+
+          if (extractedPdfBuffer) {
+            const fileName = `${bookmark.title.replace(/\s+/g, '_')}_${bookmark.index}.pdf`;
+            const url = await this.awsS3Service.uploadPdf(
+              extractedPdfBuffer,
+              fileName,
+            );
+
+            uploadedDocuments.push({
+              title: bookmark.title,
+              temp_link: url,
+              uniqueName: bookmark.id,
+              date: bookmark.data,
+            });
+
+            processedDocumentIds.add(bookmark.id); // marca como processado
+          } else {
+            this.logger.warn(
+              `Não foi possível extrair o buffer PDF para o bookmark "${bookmark.title}" (id: ${bookmark.id})`,
+            );
+          }
+        }
+      }
+
+      return uploadedDocuments;
+    } catch (error) {
+      this.logger.error('Erro ao fazer upload dos documentos restritos', error);
+      return [];
+    }
   }
 }

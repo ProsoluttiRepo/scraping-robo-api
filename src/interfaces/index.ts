@@ -10,7 +10,7 @@ export interface ItensProcesso {
   titulo: string;
   tipo: string;
   publico: boolean;
-  idUnicoDocumento: number;
+  idUnicoDocumento: string;
   instancia: string; // grau de instância
   instanciaId: number; // id da instância
 }
@@ -31,6 +31,14 @@ export type DocumentosRestritos = {
   instancia: string;
   instanciaId: number;
   tipo?: string;
+  match?: RegExp;
+  idUnicoDocumento: string;
+};
+export type Documento = {
+  title: string;
+  temp_link: string;
+  uniqueName: string;
+  date: string;
 };
 
 export interface ProcessosResponse {
@@ -38,6 +46,7 @@ export interface ProcessosResponse {
   tokenDesafio: string;
   itensProcesso: ItensProcesso[];
   grau?: string;
+  instance: string;
   imagem: string; // base64 da imagem
   resposta: string; // resposta do captcha
   [key: string]: any;
@@ -55,9 +64,10 @@ export interface ProcessosResponse {
   assuntos: Assunto[];
   expedientes: any[];
   juizoDigital: boolean;
-  documentos_restritos: DocumentosRestritos[];
+  documentos_restritos?: DocumentosRestritos[];
+  documentos: Documento[];
 }
-type Documento = {
+type DocumentoPartes = {
   tipo?: string;
   numero?: string;
 };
@@ -73,7 +83,7 @@ export type Partes = {
   nome: string;
   principal?: boolean;
   polo: string;
-  documento: Documento;
+  documento: DocumentoPartes;
   tipoDocumento?: string;
   advogado_de?: number;
   oabs?: OAB[];
