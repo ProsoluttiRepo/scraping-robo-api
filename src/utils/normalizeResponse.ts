@@ -151,6 +151,7 @@ export function normalizeResponse(
 
     if (isDocument) {
       resposta['documentos_restritos'] = instance.documentos_restritos;
+      resposta['documentos'] = instance.documentos;
     }
 
     return resposta;

@@ -30,14 +30,9 @@ export class ConsultarProcessoDocumentoService {
       await redis.del('pje:captcha:*'); // deleta todas
 
       const response = await this.processDocumentsFindService.execute(numero);
-      this.logger.log('Number:', response.numero_processo);
       this.logger.log(
-        'Documents:',
-        response.resposta?.instancias?.flatMap(
-          (i) => i?.documentos_restritos,
-        ) || [],
+        `Consulta de documentos finalizada para o processo: ${numero}`,
       );
-
       const webhookUrl = process.env.WEBHOOK_URL || '';
       await axios.post(webhookUrl, response, {
         headers: {

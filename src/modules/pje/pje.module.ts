@@ -12,6 +12,7 @@ import { ConsultarProcessoService } from './queues/processor/consultar-processo'
 import { ConsultarProcessoDocumentoQueue } from './queues/service/consultar-processo-documento';
 import { ConsultarProcessoDocumentoService } from './queues/processor/consultar-processo-documento';
 import { AwsS3Service } from 'src/services/aws-s3.service';
+import { PdfExtractService } from './services/extract.service';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AwsS3Service } from 'src/services/aws-s3.service';
     ConsultarProcessoDocumentoQueue,
     ConsultarProcessoDocumentoService,
     AwsS3Service,
+    PdfExtractService,
   ],
   exports: [],
 })

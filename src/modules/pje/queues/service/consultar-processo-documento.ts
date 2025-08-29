@@ -15,7 +15,7 @@ export class ConsultarProcessoDocumentoQueue {
       'consulta-processo-documento',
       { numero },
       {
-        attempts: 3, // até 3 tentativas se falhar
+        attempts: 1, // até 3 tentativas se falhar
         backoff: 5000, // espera 5s antes de tentar de novo
         removeOnComplete: true,
         removeOnFail: false,

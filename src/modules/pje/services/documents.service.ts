@@ -3,36 +3,34 @@ import axios from 'axios';
 import redis from 'src/shared/redis';
 import puppeteer from 'puppeteer';
 import { userAgents } from 'src/utils/user-agents';
+import { PjeLoginService } from './login.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class DocumentoService {
   private readonly logger = new Logger(DocumentoService.name);
-
+  constructor(private readonly loginService: PjeLoginService) {}
   async execute(
     processId: number,
-    documentoId: number,
     regionTRT: number,
     instancia: string,
     cookies: string,
-  ): Promise<Buffer> {
+    processNumber: string,
+  ): Promise<string> {
     try {
-      if (!processId || !documentoId || !regionTRT || !instancia) {
+      if (!processId || !regionTRT || !instancia) {
         this.logger.error('Parâmetros inválidos fornecidos');
-        return Buffer.alloc(0);
+        return '';
       }
-      let tokenCaptcha;
-      if (instancia === 'PRIMEIRO_GRAU') {
-        tokenCaptcha = await redis.get('pje:token:captcha:1');
-      } else {
-        tokenCaptcha = await redis.get('pje:token:captcha:2');
-      }
+      const tokenCaptcha = await redis.get(`pje:token:captcha:${instancia}`);
 
-      const url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${processId}/documentos/${documentoId}?tokenCaptcha=${tokenCaptcha}`;
+      const url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${processId}/integra?tokenCaptcha=${tokenCaptcha}`;
       const response = await axios.get(url, {
         headers: {
           Cookie: cookies,
-          'x-grau-instancia': instancia === 'PRIMEIRO_GRAU' ? '1' : '2',
-          referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${processId}/${instancia === 'PRIMEIRO_GRAU' ? '1' : '2'}`,
+          'x-grau-instancia': instancia,
+          referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${processNumber}/${instancia}`,
           'user-agent':
             userAgents[Math.floor(Math.random() * userAgents.length)],
         },
@@ -40,18 +38,23 @@ export class DocumentoService {
         withCredentials: true,
       });
 
-      const contentType = response.headers['content-type'] as string;
+      const buffer = Buffer.from(response.data);
 
-      const isHtml =
-        contentType.includes('text/html') ||
-        contentType.includes('text/plain') ||
-        contentType.includes('application/json');
-      if (isHtml) {
-        return Buffer.from(
-          await this.htmlToPdfBuffer((response.data as string).toString()),
-        );
+      // cria pasta temp se não existir
+      const tempDir = path.join(process.cwd(), 'tmp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
       }
-      return Buffer.from(response.data);
+
+      // gera nome de arquivo único
+      const filePath = path.join(tempDir, `${processId}.pdf`);
+
+      // salva no disco
+      fs.writeFileSync(filePath, buffer);
+
+      this.logger.log(`PDF salvo em: ${filePath}`);
+
+      return filePath;
     } catch (error) {
       this.logger.error('Erro ao executar DocumentoService', error);
       throw error; // deixa o Nest lançar 500 mas logado corretamente

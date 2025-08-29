@@ -72,6 +72,7 @@ export interface Instancia {
   movimentacoes: Movimentacoes[];
   audiencias: Audiencia[];
   documentos_restritos: DocumentoRestrito[];
+  documentos: Documento[];
 }
 
 export interface Dado {

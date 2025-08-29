@@ -35,6 +35,7 @@ export const normalizeDocsResponse = (
         data: new Intl.DateTimeFormat('pt-BR').format(new Date(item.data)),
         unique_name: `trt${regionTRT}-PJE-${item.idUnicoDocumento}`,
         instancia: item.instancia,
+        idUnicoDocumento: item.idUnicoDocumento,
         instanciaId: item.instanciaId,
         documentoId: item.id,
       })) || [];
