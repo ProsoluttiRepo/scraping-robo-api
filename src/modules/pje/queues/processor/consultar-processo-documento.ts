@@ -33,6 +33,7 @@ export class ConsultarProcessoDocumentoService {
       this.logger.log(
         `Consulta de documentos finalizada para o processo: ${numero}`,
       );
+      this.logger.debug(`Response: ${JSON.stringify(response)}`);
       const webhookUrl = process.env.WEBHOOK_URL || '';
       await axios.post(webhookUrl, response, {
         headers: {
