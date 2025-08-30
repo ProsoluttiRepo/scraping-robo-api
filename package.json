@@ -33,7 +33,6 @@
     "axios": "^1.11.0",
     "axios-cookiejar-support": "^6.0.4",
     "bullmq": "^5.57.0",
-    "canvas": "^3.2.0",
     "ioredis": "^5.7.0",
     "jimp": "^1.6.0",
     "pdf-lib": "^1.17.1",
@@ -96,8 +95,5 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  },
-  "resolutions": {
-    "canvas": "0.0.0"
   }
 }
