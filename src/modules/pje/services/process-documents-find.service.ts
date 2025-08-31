@@ -98,8 +98,7 @@ export class ProcessDocumentsFindService {
       for (let i = 1; i <= 3; i++) {
         try {
           // Delay antes da requisição de dados básicos
-          const delayMs =
-            Math.floor(Math.random() * (20000 - 15000 + 1)) + 15000;
+          const delayMs = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000; // 5 a 10s
           this.logger.debug(
             `⏱ Delay de ${delayMs}ms antes de dar inicio a ${i}ª instância`,
           );
@@ -263,8 +262,7 @@ export class ProcessDocumentsFindService {
 
       const tokenCaptcha: string = response.headers['captchatoken'] as string;
       if (tokenCaptcha) {
-        const captchaKey =
-          instance === '1' ? 'pje:token:captcha:1' : 'pje:token:captcha:2';
+        const captchaKey = `pje:token:captcha:${instance}`;
 
         await redis.set(captchaKey, tokenCaptcha);
       }
@@ -320,7 +318,7 @@ export class ProcessDocumentsFindService {
 
     const uploadedDocuments: Documento[] = [];
     const processedDocumentIds = new Set<string>(); // para evitar duplicidade
-    const delayMs = Math.floor(Math.random() * (20000 - 15000 + 1)) + 15000;
+    const delayMs = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000; // 5 a 10s
 
     // Regex para tipos de documentos seguindo o modelo /.*palavra1.*palavra2.*/i
     const regexDocumentos = [

@@ -13,7 +13,9 @@ export function normalizeResponse(
   isDocument = false,
   origem?: string,
 ): Root {
-  const opcoes: { [key: string]: any } = {};
+  const opcoes: { [key: string]: any } = {
+    documento: false,
+  };
   function generateId(length = 11) {
     const chars = '0123456789';
     let resposta = '';
@@ -24,6 +26,9 @@ export function normalizeResponse(
   }
   if (origem) {
     opcoes['origem'] = origem;
+  }
+  if (isDocument) {
+    opcoes['documento'] = true;
   }
   const now = new Date();
   if (!body || body.length === 0) {

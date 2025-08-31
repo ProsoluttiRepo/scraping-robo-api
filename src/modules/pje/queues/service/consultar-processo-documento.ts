@@ -1,26 +1,32 @@
 // pje.service.ts
-import { InjectQueue } from '@nestjs/bull';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
 @Injectable()
 export class ConsultarProcessoDocumentoQueue {
-  logger = new Logger(ConsultarProcessoDocumentoQueue.name);
-  constructor(@InjectQueue('pje-queue') private readonly pjeQueue: Queue) {}
+  private readonly logger = new Logger(ConsultarProcessoDocumentoQueue.name);
+
+  constructor(
+    @InjectQueue('pje-documentos') private readonly pjeQueue: Queue,
+  ) {}
+
   async execute(numero: string) {
     this.logger.log(
       `Enfileirando consulta de documentos para o processo: ${numero}`,
     );
+
     await this.pjeQueue.add(
       'consulta-processo-documento',
       { numero },
       {
-        attempts: 1, // até 3 tentativas se falhar
-        backoff: 5000, // espera 5s antes de tentar de novo
+        attempts: 3, // até 3 tentativas
+        backoff: { type: 'fixed', delay: 5000 }, // espera 5s entre tentativas
         removeOnComplete: true,
         removeOnFail: false,
       },
     );
+
     return { status: 'enfileirado', numero };
   }
 }
