@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 // src/modules/pje/process-find.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
@@ -6,6 +8,7 @@ import { normalizeResponse } from 'src/utils/normalizeResponse';
 
 import { Root } from 'src/interfaces/normalize';
 import { CaptchaService } from 'src/services/captcha.service';
+import { userAgents } from 'src/utils/user-agents';
 
 @Injectable()
 export class ProcessFindService {
@@ -32,7 +35,7 @@ export class ProcessFindService {
                 'x-grau-instancia': grau.toString(),
                 referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${grau}`,
                 'user-agent':
-                  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+                  userAgents[Math.floor(Math.random() * userAgents.length)],
               },
             },
           );

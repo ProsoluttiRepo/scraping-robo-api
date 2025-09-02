@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PDFDocument } from 'pdf-lib';
-import { normalizeString } from 'src/utils/normalize-string';
-import * as path from 'path';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
+import { normalizeString } from 'src/utils/normalize-string';
 @Injectable()
 export class PdfExtractService {
   logger = new Logger(PdfExtractService.name);
@@ -54,7 +53,8 @@ export class PdfExtractService {
       id: string;
     }[]
   > {
-    (pdfjsLib.GlobalWorkerOptions as any).workerSrc = null;
+    (pdfjsLib.GlobalWorkerOptions as { workerSrc: string | null }).workerSrc =
+      null;
     const uint8Array = new Uint8Array(buffer);
     const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
     const pdf = await loadingTask.promise;
