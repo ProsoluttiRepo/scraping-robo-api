@@ -24,7 +24,6 @@ export class CndtScraperService {
         '--disable-setuid-sandbox',
         '--disable-blink-features=AutomationControlled',
         '--disable-dev-shm-usage',
-        '--single-process',
         '--disable-gpu',
         '--disable-software-rasterizer',
       ],
@@ -40,6 +39,7 @@ export class CndtScraperService {
     // Preenche CNPJ
     await page.waitForSelector('input[name="gerarCertidaoForm:cpfCnpj"]', {
       visible: true,
+      timeout: 120000,
     });
     await page.type('input[name="gerarCertidaoForm:cpfCnpj"]', cnpj, {
       delay: 120,
