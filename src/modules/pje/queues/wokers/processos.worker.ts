@@ -19,7 +19,7 @@ export class ProcessosWorker extends WorkerHost {
     const response = await this.processFindService.execute(numero, origem);
     console.log('response', response);
 
-    const webhookUrl = process.env.WEBHOOK_URL || '';
+    const webhookUrl = `${process.env.WEBHOOK_URL}/process/webhook`;
     await axios.post(webhookUrl, response, {
       headers: { Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}` },
     });

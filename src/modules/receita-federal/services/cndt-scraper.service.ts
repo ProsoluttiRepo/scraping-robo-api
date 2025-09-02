@@ -4,18 +4,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { CaptchaService } from 'src/services/captcha.service';
+import { AwsS3Service } from 'src/services/aws-s3.service';
+import axios from 'axios';
 
 @Injectable()
 export class CndtScraperService {
   private readonly logger = new Logger(CndtScraperService.name);
 
-  constructor(private readonly captchaService: CaptchaService) {}
+  constructor(
+    private readonly captchaService: CaptchaService,
+    private readonly awsS3Service: AwsS3Service,
+  ) {}
 
   private async delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async execute(cnpj: string): Promise<Buffer> {
+  async execute(cnpj: string) {
+    this.logger.log(`Iniciando processo para CNPJ: ${cnpj}`);
     const browser = await puppeteer.launch({
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       headless: true, // true em produção
@@ -100,10 +106,30 @@ export class CndtScraperService {
     // Lê PDF como Buffer
     const buffer = fs.readFileSync(fileName);
 
+    // Subir para AWS S3
+    const url = await this.awsS3Service.uploadPdf(
+      buffer,
+      path.basename(fileName),
+    );
+    this.logger.log(`PDF enviado para S3: ${url}`);
+
     // Remove arquivo temporário
     fs.unlinkSync(fileName);
 
     await browser.close();
-    return buffer;
+
+    // Retorna a URL do S3
+    const webhookUrl = `${process.env.WEBHOOK_URL}/company/webhook?type=cndt`;
+    await axios.post(
+      webhookUrl,
+      {
+        cnpj,
+        temp_link: url,
+      },
+      {
+        headers: { Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}` },
+      },
+    );
+    return { cnpj, url };
   }
 }

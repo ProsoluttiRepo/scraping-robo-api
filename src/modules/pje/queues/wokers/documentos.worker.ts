@@ -21,7 +21,8 @@ export class DocumentosWorker extends WorkerHost {
     this.logger.log(`🔎 Consultando documentos para ${numero}`);
     const response = await this.processDocumentsFindService.execute(numero);
 
-    const webhookUrl = process.env.WEBHOOK_URL || '';
+    const webhookUrl = `${process.env.WEBHOOK_URL}/process/webhook`;
+
     await axios.post(webhookUrl, response, {
       headers: { Authorization: `${process.env.AUTHORIZATION_ESCAVADOR}` },
     });

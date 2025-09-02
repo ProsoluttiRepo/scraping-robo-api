@@ -5,6 +5,7 @@ import { CnpjScraperService } from './services/find.service';
 import { CndtScraperService } from './services/cndt-scraper.service';
 import { CaptchaService } from 'src/services/captcha.service';
 import { ReCaptchaService } from './services/recaptcha.service';
+import { AwsS3Service } from 'src/services/aws-s3.service';
 
 @Module({
   imports: [HttpModule],
@@ -14,6 +15,7 @@ import { ReCaptchaService } from './services/recaptcha.service';
     CaptchaService,
     CndtScraperService,
     ReCaptchaService,
+    AwsS3Service,
   ],
 })
 export class ReceitaFederalModule {}
