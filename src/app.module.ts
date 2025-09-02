@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { PjeModule } from './modules/pje/pje.module';
+import { ReceitaFederalModule } from './modules/receita-federal/receita-federal.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { PjeModule } from './modules/pje/pje.module';
       isGlobal: true,
     }),
     ScheduleModule.forRoot(),
+    ReceitaFederalModule,
   ],
   controllers: [],
   providers: [],
