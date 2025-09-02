@@ -8,21 +8,20 @@ import { ReceitaFederalModule } from './modules/receita-federal/receita-federal.
 
 @Module({
   imports: [
-    PjeModule,
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || 'redis',
-        port: Number(process.env.REDIS_PORT) || 6379,
-      },
-    }),
-    // se quiser, registra as filas explicitamente
-    BullModule.registerQueue(
-      { name: 'pje-documentos' }, // fila de documentos (concurrency 1)
-      { name: 'pje-processos' }, // fila de processos (paralela)
-    ),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    PjeModule,
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT),
+      },
+    }),
+    BullModule.registerQueue(
+      { name: 'pje-documentos' },
+      { name: 'pje-processos' },
+    ),
     ScheduleModule.forRoot(),
     ReceitaFederalModule,
   ],
