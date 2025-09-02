@@ -23,9 +23,6 @@ export class CnpjScraperService {
         '--disable-setuid-sandbox',
         '--disable-blink-features=AutomationControlled',
         '--disable-dev-shm-usage',
-        '--single-process',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
       ],
     });
 
@@ -101,7 +98,7 @@ export class CnpjScraperService {
     // Pegar o elemento #principal
     const element = await page.waitForSelector('#principal', {
       visible: true,
-      timeout: 10000,
+      timeout: 30000,
     });
 
     if (!element) {
