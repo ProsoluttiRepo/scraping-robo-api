@@ -10,10 +10,10 @@ import redis from 'src/shared/redis';
 import { normalizeString } from 'src/utils/normalize-string';
 import { normalizeResponse } from 'src/utils/normalizeResponse';
 import { userAgents } from 'src/utils/user-agents';
-import { CaptchaService } from './captcha.service';
 import { DocumentoService } from './documents.service';
 import { PdfExtractService } from './extract.service';
 import { PjeLoginService } from './login.service';
+import { CaptchaService } from 'src/services/captcha.service';
 @Injectable()
 export class ProcessDocumentsFindService {
   logger = new Logger(ProcessDocumentsFindService.name);

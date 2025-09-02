@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import puppeteer from 'puppeteer';
-import { CaptchaService } from './captcha.service';
 import { PDFDocument } from 'pdf-lib';
+import { ReCaptchaService } from './recaptcha.service';
 
 @Injectable()
 export class CnpjScraperService {
   private readonly logger = new Logger(CnpjScraperService.name);
 
-  constructor(private readonly captchaService: CaptchaService) {}
+  constructor(private readonly reCaptchaService: ReCaptchaService) {}
 
   private async delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -53,7 +53,7 @@ export class CnpjScraperService {
     }
 
     // Resolver captcha via serviço externo
-    const captchaToken = await this.captchaService.solve2Captcha(
+    const captchaToken = await this.reCaptchaService.solve2Captcha(
       siteKey,
       page.url(),
       'hcaptcha',
@@ -99,10 +99,15 @@ export class CnpjScraperService {
     );
 
     // Pegar o elemento #principal
-    const element = await page.$('#principal');
+    const element = await page.waitForSelector('#principal', {
+      visible: true,
+      timeout: 10000,
+    });
+
     if (!element) {
       await browser.close();
-      throw new Error('Div #principal não encontrada');
+      this.logger.error('Div #principal não encontrada na página.');
+      return null;
     }
 
     // Capturar posição e tamanho da div

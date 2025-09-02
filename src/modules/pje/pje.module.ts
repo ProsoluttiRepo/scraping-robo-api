@@ -3,7 +3,6 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { PjeController } from './pje.controller';
 import { ConsultarProcessoQueue } from './queues/service/consultar-processo';
-import { CaptchaService } from './services/captcha.service';
 import { DocumentoService } from './services/documents.service';
 import { PjeLoginService } from './services/login.service';
 import { ProcessDocumentsFindService } from './services/process-documents-find.service';
@@ -14,6 +13,7 @@ import { PdfExtractService } from './services/extract.service';
 import { BullModule } from '@nestjs/bullmq';
 import { ProcessosWorker } from './queues/wokers/processos.worker';
 import { DocumentosWorker } from './queues/wokers/documentos.worker';
+import { CaptchaService } from 'src/services/captcha.service';
 
 @Module({
   imports: [

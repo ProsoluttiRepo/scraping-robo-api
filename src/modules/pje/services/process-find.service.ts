@@ -3,9 +3,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { DetalheProcesso, ProcessosResponse } from 'src/interfaces';
 import { normalizeResponse } from 'src/utils/normalizeResponse';
-import { CaptchaService } from './captcha.service';
 
 import { Root } from 'src/interfaces/normalize';
+import { CaptchaService } from 'src/services/captcha.service';
 
 @Injectable()
 export class ProcessFindService {
