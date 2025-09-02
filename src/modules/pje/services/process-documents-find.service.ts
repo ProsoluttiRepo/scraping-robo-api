@@ -103,15 +103,16 @@ export class ProcessDocumentsFindService {
             `⏱ Delay de ${delayMs}ms antes de dar inicio a ${i}ª instância`,
           );
           await this.delay(delayMs);
+          const typeUrl = i === 3 ? 'tst' : `trt${regionTRT}`; // --- IGNORE ---
 
           const responseDadosBasicos = await axios.get<DetalheProcesso[]>(
-            `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
+            `https://pje.${typeUrl}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
             {
               headers: {
                 accept: 'application/json, text/plain, */*',
                 'content-type': 'application/json',
                 'x-grau-instancia': i.toString(),
-                referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${i}`,
+                referer: `https://pje.${typeUrl}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${i}`,
                 'user-agent':
                   userAgents[Math.floor(Math.random() * userAgents.length)],
                 cookie: cookies,
@@ -240,8 +241,9 @@ export class ProcessDocumentsFindService {
     tentativas = 0,
   ): Promise<ProcessosResponse> {
     const regionTRT = Number(numeroDoProcesso.split('.')[3]);
+    const typeUrl = instance === '3' ? 'tst' : `trt${regionTRT}`; // --- IGNORE ---
     try {
-      let url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${detalheProcessoId}`;
+      let url = `https://pje.${typeUrl}.jus.br/pje-consulta-api/api/processos/${detalheProcessoId}`;
       if (tockenCaptcha) {
         url += `?tokenCaptcha=${tockenCaptcha}`;
       } else if (tokenDesafio && resposta) {
@@ -253,7 +255,7 @@ export class ProcessDocumentsFindService {
           accept: 'application/json, text/plain, */*',
           'content-type': 'application/json',
           'x-grau-instancia': instance,
-          referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${instance}`,
+          referer: `https://pje.${typeUrl}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${instance}`,
           'user-agent':
             userAgents[Math.floor(Math.random() * userAgents.length)],
           cookie: cookies,

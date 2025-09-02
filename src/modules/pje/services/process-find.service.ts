@@ -27,13 +27,13 @@ export class ProcessFindService {
         try {
           const grau = 3;
           const responseDadosBasicos = await axios.get<DetalheProcesso[]>(
-            `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
+            `https://pje.tst.jus.br/pje-consulta-api/api/processos/dadosbasicos/${numeroDoProcesso}`,
             {
               headers: {
                 accept: 'application/json, text/plain, */*',
                 'content-type': 'application/json',
                 'x-grau-instancia': grau.toString(),
-                referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${grau}`,
+                referer: `https://pje.tst.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${grau}`,
                 'user-agent':
                   userAgents[Math.floor(Math.random() * userAgents.length)],
               },
@@ -156,7 +156,17 @@ export class ProcessFindService {
     regionTRT?: number,
   ) {
     try {
-      let url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${detalheProcessoId}`;
+      console.log('fetchProcess chamado com:', {
+        numeroDoProcesso,
+        detalheProcessoId,
+        instance,
+        tokenDesafio,
+        resposta,
+        regionTRT,
+      });
+      const typeUrl = instance === '3' ? 'tst' : `trt${regionTRT}`; // --- IGNORE ---
+
+      let url = `https://pje.${typeUrl}.jus.br/pje-consulta-api/api/processos/${detalheProcessoId}`;
       if (tokenDesafio && resposta) {
         url += `?tokenDesafio=${tokenDesafio}&resposta=${resposta}`;
       }
@@ -166,7 +176,7 @@ export class ProcessFindService {
           accept: 'application/json, text/plain, */*',
           'content-type': 'application/json',
           'x-grau-instancia': instance,
-          referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${instance}`,
+          referer: `https://pje.${typeUrl}.jus.br/consultaprocessual/detalhe-processo/${numeroDoProcesso}/${instance}`,
           'user-agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
         },

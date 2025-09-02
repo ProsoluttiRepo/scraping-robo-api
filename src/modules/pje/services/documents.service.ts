@@ -24,13 +24,14 @@ export class DocumentoService {
         return '';
       }
       const tokenCaptcha = await redis.get(`pje:token:captcha:${instancia}`);
+      const typeUrl = instancia === '3' ? 'tst' : `trt${regionTRT}`; // --- IGNORE ---
 
-      const url = `https://pje.trt${regionTRT}.jus.br/pje-consulta-api/api/processos/${processId}/integra?tokenCaptcha=${tokenCaptcha}`;
+      const url = `https://pje.${typeUrl}.jus.br/pje-consulta-api/api/processos/${processId}/integra?tokenCaptcha=${tokenCaptcha}`;
       const response = await axios.get(url, {
         headers: {
           Cookie: cookies,
           'x-grau-instancia': instancia,
-          referer: `https://pje.trt${regionTRT}.jus.br/consultaprocessual/detalhe-processo/${processNumber}/${instancia}`,
+          referer: `https://pje.${typeUrl}.jus.br/consultaprocessual/detalhe-processo/${processNumber}/${instancia}`,
           'user-agent':
             userAgents[Math.floor(Math.random() * userAgents.length)],
         },
