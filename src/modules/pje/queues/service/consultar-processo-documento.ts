@@ -20,7 +20,7 @@ export class ConsultarProcessoDocumentoQueue {
       'consulta-processo-documento',
       { numero },
       {
-        attempts: 3, // até 3 tentativas
+        attempts: 2, // até 1 tentativas
         backoff: { type: 'fixed', delay: 5000 }, // espera 5s entre tentativas
         removeOnComplete: true,
         removeOnFail: false,
