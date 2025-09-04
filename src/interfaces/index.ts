@@ -54,6 +54,7 @@ export interface ProcessosResponse {
   numero: string;
   classe: string;
   orgaoJulgador: string;
+  pessoaRelator: string;
   segredoJustica: boolean;
   justicaGratuita: boolean;
   distribuidoEm: string; // ou Date, se você converter

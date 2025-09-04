@@ -143,6 +143,7 @@ export function normalizeResponse(
       area: isTrabalhista ? 'Trabalhista' : 'Não Trabalhista',
       data_distribuicao: instance.distribuidoEm,
       orgao_julgador: instance.orgaoJulgador,
+      pessoa_relator: instance.pessoaRelator,
       moeda_valor_causa: 'R$',
       valor_causa: instance.valorDaCausa,
       arquivado,
