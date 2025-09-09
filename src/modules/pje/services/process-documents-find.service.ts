@@ -420,7 +420,7 @@ export class ProcessDocumentsFindService {
             );
 
           if (extractedPdfBuffer) {
-            const fileName = `${bookmark.title.replace(/\s+/g, '_')}_${bookmark.index}.pdf`;
+            const fileName = `${bookmark.title.replace(/\s+/g, '_')}_${bookmark.index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
             const url = await this.awsS3Service.uploadPdf(
               extractedPdfBuffer,
               fileName,
