@@ -1,4 +1,4 @@
-import { Partes, Polo, ProcessosResponse } from 'src/interfaces';
+import { ItensProcesso, Partes, Polo, ProcessosResponse } from 'src/interfaces';
 import { Root } from 'src/interfaces/normalize';
 
 type Assunto = {
@@ -71,7 +71,7 @@ export function normalizeResponse(
           ),
         )?.data
       : null;
-    const partes: Partes[] = [];
+    let partes: Partes[] = [];
 
     ['poloAtivo', 'poloPassivo'].forEach((poloKey) => {
       ((instance[poloKey] as Polo[]) ?? []).forEach((parte: Polo) => {
@@ -113,7 +113,9 @@ export function normalizeResponse(
         });
       });
     });
-    // Função para gerar ID com 11 dígitos
+    if (!isDocument) {
+      partes = atualizarNomesPartes(instance.itensProcesso, partes);
+    }
 
     const movimentacoes = instance?.itensProcesso?.map((item) => {
       const partesConteudo = [
@@ -201,4 +203,66 @@ export function normalizeResponse(
     },
     valor: body[0]?.numero,
   } as Root;
+}
+
+function scoreIniciais(partesIni: string, tituloIni: string): number {
+  if (!partesIni || !tituloIni) return 0;
+  let score = 0;
+  const tituloArr = tituloIni.split('');
+  partesIni.split('').forEach((l) => {
+    if (tituloArr.includes(l)) score++;
+  });
+  return score / partesIni.length; // retorna % de correspondência
+}
+
+export function atualizarNomesPartes(
+  titulos: ItensProcesso[],
+  partes: Partes[],
+  limiar = 0.5, // 50% de correspondência mínima
+): Partes[] {
+  const regexNomePessoa = /\b[A-ZÁ-Ú]{2,}(?:\s+[A-ZÁ-Ú]{2,})+\b/g;
+  const regexEmpresa =
+    /\b[A-ZÁ-Ú&\.\-]{2,}(?:\s+[A-ZÁ-Ú&\.\-]{2,})*\b(?:\s*(?:S\/A|LTDA|ME|EIRELI))?/g;
+
+  const gerarIniciais = (nome?: string): string => {
+    if (!nome) return '';
+    return nome
+      .replace(/[.,]/g, '')
+      .replace(/\b(S\/A|LTDA|ME|EIRELI)\b/g, '')
+      .split(/\s+/)
+      .map((w) => w[0])
+      .join('');
+  };
+
+  // Extrair nomes
+  const nomesExtraidos: string[] = [];
+  const empresasExtraidas: string[] = [];
+
+  titulos.forEach((item) => {
+    const titulo = item.titulo || '';
+    nomesExtraidos.push(...(titulo.match(regexNomePessoa) || []));
+    empresasExtraidas.push(...(titulo.match(regexEmpresa) || []));
+  });
+
+  const todosNomesExtraidos = [...empresasExtraidas, ...nomesExtraidos];
+
+  const partesAtualizadas = partes.map((p) => {
+    const copiaParte = { ...p };
+    const nomesParaAssociar =
+      p.documento?.tipo === 'CNPJ' ? empresasExtraidas : todosNomesExtraidos;
+
+    nomesParaAssociar.forEach((nomeCompleto) => {
+      const iniciaisTitulo = gerarIniciais(nomeCompleto).toUpperCase();
+      const iniciaisParte = gerarIniciais(copiaParte.nome).toUpperCase();
+
+      const score = scoreIniciais(iniciaisParte, iniciaisTitulo);
+
+      if (score >= limiar && nomeCompleto.split(' ').length > 1) {
+        copiaParte.nome = nomeCompleto;
+      }
+    });
+
+    return copiaParte;
+  });
+  return partesAtualizadas;
 }
