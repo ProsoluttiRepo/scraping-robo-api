@@ -218,7 +218,7 @@ function scoreIniciais(partesIni: string, tituloIni: string): number {
 export function atualizarNomesPartes(
   titulos: ItensProcesso[],
   partes: Partes[],
-  limiar = 0.5, // 50% de correspondência mínima
+  limiar = 0.5,
 ): Partes[] {
   const regexNomePessoa = /\b[A-ZÁ-Ú]{2,}(?:\s+[A-ZÁ-Ú]{2,})+\b/g;
   const regexEmpresa =
@@ -234,7 +234,7 @@ export function atualizarNomesPartes(
       .join('');
   };
 
-  // Extrair nomes
+  // Extrair nomes dos títulos
   const nomesExtraidos: string[] = [];
   const empresasExtraidas: string[] = [];
 
@@ -246,23 +246,46 @@ export function atualizarNomesPartes(
 
   const todosNomesExtraidos = [...empresasExtraidas, ...nomesExtraidos];
 
-  const partesAtualizadas = partes.map((p) => {
-    const copiaParte = { ...p };
+  return partes.map((parte) => {
+    const copiaParte = { ...parte };
     const nomesParaAssociar =
-      p.documento?.tipo === 'CNPJ' ? empresasExtraidas : todosNomesExtraidos;
+      parte.documento?.tipo === 'CNPJ'
+        ? empresasExtraidas
+        : todosNomesExtraidos;
 
-    nomesParaAssociar.forEach((nomeCompleto) => {
-      const iniciaisTitulo = gerarIniciais(nomeCompleto).toUpperCase();
+    let melhorScore = 0;
+    let melhorNome = copiaParte.nome;
+
+    for (const nomeCompleto of nomesParaAssociar) {
+      // ⚖️ Comparar documentos: se CPF/CNPJ bate, substitui direto
+      if (
+        parte.documento?.numero &&
+        nomeCompleto.includes(parte.documento.numero)
+      ) {
+        melhorNome = nomeCompleto;
+        break;
+      }
+
+      // ⚖️ Impedir que ADVOGADO seja confundido com empresa
+      if (parte.tipo === 'ADVOGADO' && nomeCompleto.match(regexEmpresa)) {
+        continue;
+      }
+
       const iniciaisParte = gerarIniciais(copiaParte.nome).toUpperCase();
-
+      const iniciaisTitulo = gerarIniciais(nomeCompleto).toUpperCase();
       const score = scoreIniciais(iniciaisParte, iniciaisTitulo);
 
-      if (score >= limiar && nomeCompleto.split(' ').length > 1) {
-        copiaParte.nome = nomeCompleto;
+      if (
+        score > melhorScore &&
+        score >= limiar &&
+        nomeCompleto.split(' ').length > 1
+      ) {
+        melhorScore = score;
+        melhorNome = nomeCompleto;
       }
-    });
+    }
 
+    copiaParte.nome = melhorNome;
     return copiaParte;
   });
-  return partesAtualizadas;
 }
