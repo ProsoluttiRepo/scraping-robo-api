@@ -5,7 +5,7 @@ import { Job } from 'bullmq';
 import axios from 'axios';
 import { ProcessFindService } from '../../services/process-find.service';
 
-@Processor('pje-processos', { concurrency: 5, lockDuration: 600000 }) // paralelo
+@Processor('pje-processos', { concurrency: 2, lockDuration: 600000 }) // paralelo
 export class ProcessosWorker extends WorkerHost {
   private readonly logger = new Logger(ProcessosWorker.name);
 
