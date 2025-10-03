@@ -208,9 +208,9 @@ export function normalizeResponse(
 function scoreIniciais(partesIni: string, tituloIni: string): number {
   if (!partesIni || !tituloIni) return 0;
   let score = 0;
-  const tituloArr = tituloIni.split('');
-  partesIni.split('').forEach((l) => {
-    if (tituloArr.includes(l)) score++;
+  const tituloArr = tituloIni?.split('');
+  partesIni?.split('').forEach((l) => {
+    if (tituloArr?.includes(l)) score++;
   });
   return score / partesIni.length; // retorna % de correspondência
 }
@@ -229,7 +229,7 @@ export function atualizarNomesPartes(
     return nome
       .replace(/[.,]/g, '')
       .replace(/\b(S\/A|LTDA|ME|EIRELI)\b/g, '')
-      .split(/\s+/)
+      ?.split(/\s+/)
       .map((w) => w[0])
       .join('');
   };
@@ -278,7 +278,7 @@ export function atualizarNomesPartes(
       if (
         score > melhorScore &&
         score >= limiar &&
-        nomeCompleto.split(' ').length > 1
+        nomeCompleto?.split(' ').length > 1
       ) {
         melhorScore = score;
         melhorNome = nomeCompleto;
