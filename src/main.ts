@@ -15,7 +15,7 @@ async function bootstrap() {
   if (process.env?.ENVIRONMENT !== 'production') {
     const serverAdapter = new ExpressAdapter();
     serverAdapter.setBasePath('/bull-board');
-    const aQueue = app.get<Queue>(`BullQueue_process-queue`);
+    const aQueue = app.get<Queue>(`BullQueue_pje-documentos`);
     createBullBoard({
       queues: [new BullAdapter(aQueue)],
       serverAdapter,
