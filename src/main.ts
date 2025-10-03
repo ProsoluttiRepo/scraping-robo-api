@@ -1,10 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ExpressAdapter } from '@bull-board/express';
-import { Queue } from 'bull';
 import { createBullBoard } from '@bull-board/api';
-import { BullAdapter } from '@bull-board/api/bullAdapter';
-
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { Queue } from 'bullmq';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const port = process.env.PORT || 8081;
@@ -15,11 +14,19 @@ async function bootstrap() {
   if (process.env?.ENVIRONMENT !== 'production') {
     const serverAdapter = new ExpressAdapter();
     serverAdapter.setBasePath('/bull-board');
-    const aQueue = app.get<Queue>(`BullQueue_pje-documentos`);
+
+    // Pega as filas registradas no AppModule
+    const documentosQueue = app.get<Queue>(`BullQueue_pje-documentos`);
+    const processosQueue = app.get<Queue>(`BullQueue_pje-processos`);
+
     createBullBoard({
-      queues: [new BullAdapter(aQueue)],
+      queues: [
+        new BullMQAdapter(documentosQueue),
+        new BullMQAdapter(processosQueue),
+      ],
       serverAdapter,
     });
+
     app.use('/bull-board', serverAdapter.getRouter());
   }
   await app.listen(port);
