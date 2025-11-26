@@ -186,11 +186,11 @@ export class ProcessDocumentsFindService {
       );
       await this.delay(this.delayMs);
 
-      const filePath = await this.fetchDocumentoService.execute(
-        ultimaInstancia?.id as number,
-        regionTRT,
-        ultimaInstancia?.instance as string,
+      const filePath = await this.documentoService.execute(
         processNumber,
+        regionTRT,
+        Number(ultimaInstancia?.instance),
+        // ultimaInstancia?.id as number,
       );
 
       const fileBuffer = fs.readFileSync(filePath);

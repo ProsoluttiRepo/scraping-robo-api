@@ -111,7 +111,7 @@ export class GenericProcessoWorker extends WorkerHost {
       // --------------------------
       // 🔍 Buscar processo
       // --------------------------
-      const instances = await this.fetchUrlMovimentService.execute(
+      const instances = await this.webScrapingMovimentService.execute(
         numero,
         origem,
       );
